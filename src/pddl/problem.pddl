@@ -1,0 +1,5 @@
+(define (problem ROBOT-COOK) 
+(:domain COOK) 
+ (:objects pear - ingredient)
+(:init  (clean pear) (handempty)) 
+(:goal (and  (cooked pear)))) 
