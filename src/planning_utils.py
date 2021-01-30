@@ -1,8 +1,9 @@
 import numpy as np  
 
 class utils:
-	def __init__(self, robot):
+	def __init__(self, robot, world):
 		self.robot = robot
+		self.world = world
 
 	def collision_score_traj_obst(self, traj, pose_max, armname, obstacles):
 		'''
@@ -48,3 +49,31 @@ class utils:
 	def kin_score_grasps(self, cmax, pmax, grasp,  armname):
 		score = self.robot.score_kin(cmax, pmax, grasp)
 		return score
+
+	def se2_traj_score(self, traj, pose):
+		score = np.linalg.norm(np.array(traj[-1])-np.array(pose))
+		return score
+
+	def se2_pose_score(self, traj, pose):
+		score = np.linalg.norm(np.array(traj[-1])-np.array(pose))
+		return score
+
+	def plan_arm_trajectory_to(self, pose):
+		traj = self.robot.plan_arm_motion(pose, 'right_arm')
+		return traj
+
+	def compute_generic_grasp(self, pose):
+		grasp = self.robot.get_generic_top_grasp(pose)
+		return grasp
+
+	def compute_ik_to_pose(self, pose):
+		conf = self.robot.compute_ik_to_pose(pose[0],pose[1], 'right_arm')
+		return conf 
+
+	def plan_se2_motion_to(self, pose):
+		traj = self.robot.plan_to_pose(pose)
+		return traj
+
+	def get_prior_belief(self, num_particles, targets):
+		prior = self.world.get_prior_belief(num_particles, targets)
+		return prior

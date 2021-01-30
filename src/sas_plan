@@ -1,5 +1,7 @@
+(pick pear)
 (put-on-tray pear)
 (carry-tray pear)
 (go-to-stove )
+(pick pear)
 (cook pear)
-; cost = 4 (unit cost)
+; cost = 6 (unit cost)

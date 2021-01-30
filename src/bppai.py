@@ -3,16 +3,23 @@ import planning_utils as pu
 from fd import Fast_Downward
 
 class Action:
-	def __init__(self, name, obj, constraints=[], params=[]):
+	def __init__(self, name, obj=None, constraints=[], variables=[]):
 		self.name = name
 		self.obj = obj
 		self.constraints = constraints
-		self.params = params
+		self.variables = variables
+		self.maps={}
+
+	def get_map_for_variables(self):
+		for var in self.variables:
+			self.maps[var.type] = var.get_map()
 
 class Variable_node:
-	def __init__(self, name, typename):
+	def __init__(self, name, typename,actionname, actiontarget):
 		self.name = name
 		self.type = typename
+		self.action_name = actionname
+		self.action_target = actiontarget
 		self.num_particles = 50
 		self.weighted_particles={} 
 
@@ -35,6 +42,8 @@ class Variable_node:
 	def belief_update(self):
 		for c in self.weighted_particles: 
 			all_particles+=self.weighted_particles[c]
+		if len(all_particles) == 0:
+			all_particles = self.prior_particles
 		wts = [pw[1] for pw in all_particles]
 		pts = [pw[0] for pw in all_particles]
 		wts = wts/np.sum(wts)
@@ -48,6 +57,68 @@ class Variable_node:
 		norm_weights = [b[1] for b in belief]
 		sample = np.random.choice(items, size=len(norm_weights), p=norm_weights )
 		return sample 
+
+	def get_map(self):
+		belief = self.belief_update()
+		weights = [w[1] for w in belief]
+		maxind = np.argmax(weights)
+		maxpart = belief[maxind]
+		return maxpart[0]
+
+
+	def initialize_with_prior(self, prior):
+		if self.action_target != '': 
+			self.prior_pose_particles = prior[self.action_target]
+			
+			if self.action_name == 'put-on-tray' or self.action_name == 'carry-tray':
+				self.prior_pose_particles = prior['tray']
+
+			if self.type == "Pose":
+				self.prior_particles = self.prior_pose_particles
+			elif self.type == "Trajectory":
+				pts = []
+				for (pose,wt) in self.prior_pose_particles:
+					traj = pu.plan_arm_trajectory_to(pose)
+					pts.append((traj,wt))
+				self.prior_particles = pts 
+			elif self.type == "Grasp":
+				pts = []
+				for (pose,wt) in self.prior_pose_particles:
+					grasp = pu.compute_generic_grasp(pose)
+					pts.append((grasp,wt))
+				self.prior_particles = pts 
+			elif self.type == "Configuration":
+				pts = []
+				for (pose,wt) in self.prior_pose_particles:
+					conf = pu.compute_ik_to_pose(pose)
+					pts.append((conf,wt))
+				self.prior_particles = pts 
+		else:
+			if self.action_name == 'go-to-wash-station':
+				self.prior_pose_particles = prior['wash-station']
+				if self.type == "SE2-Pose":
+					self.prior_particles = prior['wash-station']
+				elif self.type == "SE2-Trajectory":
+					pts = []
+					for (pose,wt) in self.prior_pose_particles:
+						traj = pu.plan_se2_motion_to(pose)
+						pts.append((traj,wt))
+					self.prior_particles = pts
+
+			elif self.action_name == 'go-to-stove':
+				self.prior_pose_particles = prior['stove-station']
+				if self.type == "SE2-Pose":
+					self.prior_particles = prior['stove-station']
+				elif self.type == "SE2-Trajectory":
+					pts = []
+					for (pose,wt) in self.prior_pose_particles:
+						traj = pu.plan_se2_motion_to(pose)
+						pts.append((traj,wt))
+					self.prior_particles = pts  
+
+
+
+
 
 
 
@@ -93,7 +164,9 @@ class Constraint_node:
 
 
 class HCSP: 
+	constrained_actions = None
 	factor_graph = {}
+	skeleton = None
 
 
 class Plan_skeleton:
@@ -102,14 +175,25 @@ class Plan_skeleton:
 		self.instructions=instructions
 		self.constraints = {'CFree':[('T','Trajectory'),('p', 'Pose')],
 							'Kin':[('p', 'Pose'),('g','Grasp'),('q','Configuration')],
-							'Stable':[('s', 'Stable_placement')],
-							'Grasp':[('g', 'Grasp')]}
+							'Stable':[('p', 'Pose')],
+							'Grasp':[('g', 'Grasp')],
+							'CFree-move':[('M','SE2-Trajectory'),('MP','SE2-Pose')]}
 		self.cfuncs = {'CFree': self.collision_free_func,
 					   'Kin': self.kin_func,
 					   'Stable':self.stable_func,
-					   'Grasp':self.grasp_func}
+					   'Grasp':self.grasp_func,
+					   'CFree-move':self.se2_func}
 		self.domain_path = 'pddl/cook_domain.pddl' 
 		self.ingredients = ['pear']#,'strawberry', 'meatcan']
+		self.constraints_of_actions = {
+			 'pick':['CFree', 'Kin', 'Grasp'],
+			 'put-on-tray':['CFree','Kin', 'Stable'],
+			 'carry-tray':['CFree', 'Kin', 'Grasp'],
+			 'wash':['CFree','Kin'],
+			 'cook':['CFree','Kin', 'Stable'],
+			 'go-to-wash-station':['CFree-move'],
+			 'go-to-stove':['CFree-move']
+			}
 
 
 	def get_skeleton(self):
@@ -119,6 +203,7 @@ class Plan_skeleton:
 		for instruction in self.instructions:
 			goal_state = self.infer_goal_state(instruction)
 			plan = self.plan_from(prev_state, goal_state) 
+			# print('\n',plan, '\n')
 			skeleton+=plan 
 			prev_state = goal_state + ' (handempty)'
 		return skeleton
@@ -164,18 +249,60 @@ class Plan_skeleton:
 		return problem_path
 
 
-	def build_hcsp(self):
+	def assign_constraints_to_actions(self, skeleton):
+		action_skeleton = []
+		for action in skeleton:
+			act = Action(action[0],action[1])
+			constraints = self.constraints_of_actions[action[0]]
+			cc=[]
+			for c in constraints:
+				func = self.cfuncs[c]
+				constobj = Constraint_node(c, self.constraints[c], func)
+				cc.append(constobj)
+			act.constraints=cc
+			action_skeleton.append(act)
+		return action_skeleton
+
+
+	# def build_hcsp(self):
+	# 	hcsp = HCSP()
+	# 	cons = []
+	# 	for c in self.constraints: #change self.constraints to something else
+	# 		func = self.cfuncs[c]
+	# 		constraint = Constraint_node(c, self.constraints[c], func)
+	# 		variables = [Variable_node(n[0],n[1]) for n in self.constraints[c]]
+	# 		hcsp.factor_graph[c] = [constraint, (variables)] 
+	# 	return hcsp
+
+
+	def build_hcsp_from_constrained_action_skeleton(self, const_actions):
 		hcsp = HCSP()
-		cons = []
-		for c in self.constraints:
-			func = self.cfuncs[c]
-			constraint = Constraint_node(c, self.constraints[c], func)
-			variables = [Variable_node(n[0],n[1]) for n in self.constraints[c]]
-			hcsp.factor_graph[c] = [constraint, (variables)] 
+		hcsp.constrained_actions = const_actions
+		index = 0
+		for act in const_actions:  
+			for const in act.constraints: 
+				var_objs = [Variable_node(n[0], n[1], act.name, act.obj) for n in const.variables]
+				hcsp.factor_graph[act.name+act.obj+const.name+str(index)] = [const, var_objs]
+				index +=1
+		return hcsp
+
+
+	def build_hcsp(self):
+		skeleton = self.get_skeleton()
+		constrained_actions = self.assign_constraints_to_actions(skeleton)
+		hcsp = self.build_hcsp_from_constrained_action_skeleton(constrained_actions)
+		hcsp.skeleton = skeleton
 		return hcsp
 
 
 	def print_hcsp(self, hcsp):
+		print('\n Skeleton: ', hcsp.skeleton)
+		print('\nnumber of discrete actions: ',len(hcsp.constrained_actions))
+		num_constraints_in_actions = 0
+		for a in hcsp.constrained_actions:
+			num_constraints_in_actions+=len(a.constraints)
+		print('total number of constraints in actions: ',num_constraints_in_actions)
+		print('\nnumber of actions in 1: ',len(hcsp.constrained_actions[0].constraints))
 		for c in hcsp.factor_graph:
 			print(c)
 			print([v.name for v in hcsp.factor_graph[c][1]])
@@ -226,6 +353,30 @@ class Plan_skeleton:
 		stable_weights = stable_weights/np.sum(stable_weights)
 		msg = [(pt, wt) in zip(only_stables, stable_weights)]
 		return msg
+
+
+	def se2_func(self, se2_traj, se2_pose, target):
+		if target == "SE2-Trajectory":
+			pmax = self.get_best(se2_pose)
+			only_traj = [t[0] for t in se2_traj]
+			traj_weights = []
+			for traj in only_traj:
+				wt = pu.se2_traj_score(traj, pmax)
+				traj_weights.append(wt)
+			traj_weights = traj_weights/np.sum(traj_weights)
+			msg = [(pt,wt) for pt,wt in zip(only_traj, traj_weights)]
+			return msg 
+
+		elif target == "SE2-Pose":
+			tmax = self.get_best(se2_traj)
+			only_pose = [p[0] for p in se2_pose]
+			pose_weights = []
+			for pose in only_pose:
+				wt = pu.se2_pose_score(tmax, pose)
+				pose_weights.append(wt)
+			pose_weights = pose_weights/np.sum(pose_weights)
+			msg = [(pt,wt) for pt, wt in zip(only_pose, pose_weights)]
+			return msg
 
 
 	def get_best(self, particles):
@@ -281,14 +432,18 @@ class PMPNBP:
 
 
 	def initialize_variables_with_prior(self, prior):
-		pass
+		for constraint in self.hcsp.factor_graph:
+			variables = self.hcsp.factor_graph[constraint][1] 
+			for var in variables:
+				var.initialize_with_prior(prior) 
+
 
 	def pass_variables_to_constraint_msg(self):
 		for constraint in self.hcsp.factor_graph:
 			variables = self.hcsp.factor_graph[constraint][1]
 			const = self.hcsp.factor_graph[constraint][0]
 			for var in variables:
-				msg = var.send_msg_to_constraint(constraint)
+				msg = var.send_msg_to_constraint(const.name)
 				const.receive_msg_from_variable(var.type, msg)
 
 	def pass_constraint_to_variable_msg(self):
@@ -300,13 +455,19 @@ class PMPNBP:
 				msg = const.send_msg_to_variable(sampled_belief, var.name, var.type)
 				var.receive_msg_from_constraint(const.name, msg)
 
-	def pass_messages_across_factor_graph(self):
-		self.pass_variables_to_constraint_msg()
+	def pass_messages_across_factor_graph(self): 
 		self.pass_constraint_to_variable_msg()
+		self.pass_variables_to_constraint_msg()
 
 
 
+'''
+prior = {pear:[weigted particles of pear position],
+		 stove-station: [weighted particles of stove se2 position],
+		 wash-station: [weighted particles of wash se2 position],
+		 tray: [weighted particles of tray position]}
 
+'''
 
 
 
@@ -314,8 +475,21 @@ class PMPNBP:
 
 if __name__ == '__main__':
 	ps = Plan_skeleton([('get', 'pear'), ('wash','pear'), ('cook','pear')])
-	# hcsp = ps.build_hcsp()	
-	# ps.print_hcsp(hcsp) 
+	hcsp = ps.build_hcsp()	
+	ps.print_hcsp(hcsp) 
+	prior = pu.get_prior_belief(num_particles=50, targets=['pear', 'wash-station','stove-station','tray', 'wash-bowl','stove' ])
+	pmpnbp = PMPNBP(hcsp)
+	pmpnbp.initialize_variables_with_prior(prior)
+	pmpnbp.pass_messages_across_factor_graph()
+	
+
 	# plan = ps.plan_from('(handempty) (clean pear) (not (in-tray pear)) ',     '(cooked pear)')
 	# print('cook plan: ',plan)
-	print(ps.get_skeleton())
+	# print(ps.get_skeleton())
+
+	'''
+	skel = ps.assign_constraints_to_actions([('pick','pear') ,('put-on-tray','pear')])
+	print(len(skel))
+	for s in skel:
+		print(s.name,len(s.constraints))
+		'''
