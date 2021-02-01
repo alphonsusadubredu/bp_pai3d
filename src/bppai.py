@@ -1,6 +1,7 @@
 import numpy as np 
-import planning_utils as pu
+# import planning_utils as pu
 from fd import Fast_Downward
+import copy 
 
 class Action:
 	def __init__(self, name, obj=None, constraints=[], variables=[]):
@@ -15,35 +16,42 @@ class Action:
 			self.maps[var.type] = var.get_map()
 
 class Variable_node:
-	def __init__(self, name, typename,actionname, actiontarget):
+	def __init__(self, name, typename,actionname, actiontarget, pu):
 		self.name = name
 		self.type = typename
 		self.action_name = actionname
 		self.action_target = actiontarget
 		self.num_particles = 50
 		self.weighted_particles={} 
+		self.pu = pu
 
 	def send_msg_to_constraint(self, constraint):
 		all_particles = [] 
 		for c in self.weighted_particles:
 			if c is not constraint:
 				all_particles+=self.weighted_particles[c]
+		if len(all_particles) == 0:
+			all_particles = self.prior_particles
 		wts = [pw[1] for pw in all_particles]
 		pts = [pw[0] for pw in all_particles]
 		wts = wts/np.sum(wts)
-		msg = [(pt,wt) for pt, wt in zip(pts, wts)]
+		msg = [(pt,wt) for pt, wt in zip(pts, wts)] 
 		return msg 
 
 
 	def receive_msg_from_constraint(self, constraint, msg):
+		if msg is None:
+			print('No message from: ',constraint)
 		self.weighted_particles[constraint] = msg
 
 
 	def belief_update(self):
+		all_particles=[]
 		for c in self.weighted_particles: 
-			all_particles+=self.weighted_particles[c]
-		if len(all_particles) == 0:
-			all_particles = self.prior_particles
+			if self.weighted_particles[c] is not None:
+				all_particles+=self.weighted_particles[c]
+		if len(all_particles) == 0: 
+			all_particles = copy.deepcopy(self.prior_particles) 
 		wts = [pw[1] for pw in all_particles]
 		pts = [pw[0] for pw in all_particles]
 		wts = wts/np.sum(wts)
@@ -53,10 +61,13 @@ class Variable_node:
 
 	def get_sample_from_belief(self):
 		belief = self.belief_update()
-		sampled_particles = []
-		norm_weights = [b[1] for b in belief]
-		sample = np.random.choice(items, size=len(norm_weights), p=norm_weights )
-		return sample 
+		particles = []
+		indices = [i for i in range(len(belief))]
+		weights = [b[1] for b in belief]
+		sampled_indices = np.random.choice(indices, size=len(weights), p=weights )
+		for ind in sampled_indices:
+			particles.append(belief[ind])
+		return particles 
 
 	def get_map(self):
 		belief = self.belief_update()
@@ -78,19 +89,19 @@ class Variable_node:
 			elif self.type == "Trajectory":
 				pts = []
 				for (pose,wt) in self.prior_pose_particles:
-					traj = pu.plan_arm_trajectory_to(pose)
+					traj = self.pu.plan_arm_trajectory_to(pose) 
 					pts.append((traj,wt))
 				self.prior_particles = pts 
 			elif self.type == "Grasp":
 				pts = []
 				for (pose,wt) in self.prior_pose_particles:
-					grasp = pu.compute_generic_grasp(pose)
+					grasp = self.pu.compute_generic_grasp(pose)
 					pts.append((grasp,wt))
 				self.prior_particles = pts 
 			elif self.type == "Configuration":
 				pts = []
 				for (pose,wt) in self.prior_pose_particles:
-					conf = pu.compute_ik_to_pose(pose)
+					conf = self.pu.compute_ik_to_pose(pose)
 					pts.append((conf,wt))
 				self.prior_particles = pts 
 		else:
@@ -101,7 +112,7 @@ class Variable_node:
 				elif self.type == "SE2-Trajectory":
 					pts = []
 					for (pose,wt) in self.prior_pose_particles:
-						traj = pu.plan_se2_motion_to(pose)
+						traj = self.pu.plan_se2_motion_to(pose)
 						pts.append((traj,wt))
 					self.prior_particles = pts
 
@@ -112,7 +123,7 @@ class Variable_node:
 				elif self.type == "SE2-Trajectory":
 					pts = []
 					for (pose,wt) in self.prior_pose_particles:
-						traj = pu.plan_se2_motion_to(pose)
+						traj = self.pu.plan_se2_motion_to(pose)
 						pts.append((traj,wt))
 					self.prior_particles = pts  
 
@@ -131,15 +142,17 @@ class Constraint_node:
 		self.variable_msgs = {}
 
 	def receive_msg_from_variable(self, variabletype, msg):
-		self.variable_msgs[variabletype] = msg 
+		self.variable_msgs[variabletype] = msg  
 
 	def send_msg_to_variable(self, sampled_belief, variablename, variabletype):
 		if self.name == 'CFree':
 			msg = None
-			if variabletype == 'Trajectory':
+			if variabletype == 'Trajectory': 
 				msg = self.constraint_function(sampled_belief, self.variable_msgs['Pose'], target=variabletype)
 			elif variabletype == 'Pose':
 				msg = self.constraint_function(self.variable_msgs['Trajectory'],sampled_belief, target=variabletype)
+			if msg is None:
+				print(variabletype)
 			return msg
 
 		elif self.name == 'Kin':
@@ -150,15 +163,28 @@ class Constraint_node:
 				msg = self.constraint_function(self.variable_msgs['Grasp'], sampled_belief, self.variable_msgs['Pose'],target=variabletype)
 			elif variabletype == 'Pose':
 				msg = self.constraint_function(self.variable_msgs['Grasp'], self.variable_msgs['Configuration'], sampled_belief, target=variabletype)
+			if msg is None:
+				print(variabletype)
 			return msg 
 
 		elif self.name == 'Grasp':
 			msg = self.constraint_function(sampled_belief, None, None)
+			if msg is None:
+				print(variabletype)
 			return msg 
 
 		elif self.name == 'Stable':
 			msg = self.constraint_function(sampled_belief, None, None)
+			if msg is None:
+				print(variabletype)
 			return msg 
+
+		elif self.name == 'CFree-move':
+			if variabletype == 'SE2-Trajectory':
+				msg = self.constraint_function(sampled_belief, self.variable_msgs['SE2-Pose'],target=variabletype)
+			elif variabletype == 'SE2-Pose':
+				msg = self.constraint_function(self.variable_msgs['SE2-Trajectory'], sampled_belief, target=variabletype)
+			return msg
 
   
 
@@ -170,9 +196,10 @@ class HCSP:
 
 
 class Plan_skeleton:
-	def __init__(self, instructions):
+	def __init__(self, instructions,pu=None):
 		self.actions=[]
 		self.instructions=instructions
+		self.pu = pu
 		self.constraints = {'CFree':[('T','Trajectory'),('p', 'Pose')],
 							'Kin':[('p', 'Pose'),('g','Grasp'),('q','Configuration')],
 							'Stable':[('p', 'Pose')],
@@ -281,7 +308,7 @@ class Plan_skeleton:
 		index = 0
 		for act in const_actions:  
 			for const in act.constraints: 
-				var_objs = [Variable_node(n[0], n[1], act.name, act.obj) for n in const.variables]
+				var_objs = [Variable_node(n[0], n[1], act.name, act.obj,self.pu) for n in const.variables]
 				hcsp.factor_graph[act.name+act.obj+const.name+str(index)] = [const, var_objs]
 				index +=1
 		return hcsp
@@ -315,7 +342,7 @@ class Plan_skeleton:
 			pose_max = self.get_best(poses)
 			only_traj = [t[0] for t in trajs]
 			for traj in only_traj:
-				wt = pu.collision_score_traj_obst(traj, pose_max)
+				wt = self.pu.collision_score_traj_obst(traj, pose_max)
 				traj_weights.append(wt)
 			traj_weights = traj_weights/np.sum(traj_weights)
 			msg = [(pt, wt) for pt,wt in zip(only_traj, traj_weights)]
@@ -326,7 +353,7 @@ class Plan_skeleton:
 			traj_max = self.get_best(trajs)
 			only_pose = [p[0] for p in poses]
 			for pose in only_pose:
-				wt = pu.collision_score_pose_obst(pose, traj_max)
+				wt = self.pu.collision_score_pose_obst(pose, traj_max)
 				pose_weights.append(wt)
 			pose_weights = pose_weights/np.sum(pose_weights)
 			msg = [(pt,wt) for pt, wt in zip(only_pose, pose_weights)]
@@ -337,10 +364,10 @@ class Plan_skeleton:
 		only_grasps = [g[0] for g in grasps]
 		grasp_weights = []
 		for grasp in only_grasps:
-			wt = pu.grasp_score_grasp(grasp)
+			wt = self.pu.grasp_score_grasp(grasp)
 			grasp_weights.append(wt)
 		grasp_weights = grasp_weights/np.sum(grasp_weights)
-		msg = [(pt, wt) in zip(only_grasps, grasp_weights)]
+		msg = [(pt, wt) for pt,wt in zip(only_grasps, grasp_weights)]
 		return msg 
 
 
@@ -348,10 +375,10 @@ class Plan_skeleton:
 		only_stables = [g[0] for g in stables]
 		stable_weights = []
 		for stable in only_stables:
-			wt = pu.stable_score_stable(stable)
+			wt = self.pu.stable_score_stable(stable)
 			stable_weights.append(wt)
 		stable_weights = stable_weights/np.sum(stable_weights)
-		msg = [(pt, wt) in zip(only_stables, stable_weights)]
+		msg = [(pt, wt) for pt, wt in zip(only_stables, stable_weights)]
 		return msg
 
 
@@ -361,7 +388,7 @@ class Plan_skeleton:
 			only_traj = [t[0] for t in se2_traj]
 			traj_weights = []
 			for traj in only_traj:
-				wt = pu.se2_traj_score(traj, pmax)
+				wt = self.pu.se2_traj_score(traj, pmax)
 				traj_weights.append(wt)
 			traj_weights = traj_weights/np.sum(traj_weights)
 			msg = [(pt,wt) for pt,wt in zip(only_traj, traj_weights)]
@@ -372,7 +399,7 @@ class Plan_skeleton:
 			only_pose = [p[0] for p in se2_pose]
 			pose_weights = []
 			for pose in only_pose:
-				wt = pu.se2_pose_score(tmax, pose)
+				wt = self.pu.se2_pose_score(tmax, pose)
 				pose_weights.append(wt)
 			pose_weights = pose_weights/np.sum(pose_weights)
 			msg = [(pt,wt) for pt, wt in zip(only_pose, pose_weights)]
@@ -392,7 +419,7 @@ class Plan_skeleton:
 			only_confs = [q[0] for q in confs]
 			conf_weights = []
 			for conf in only_confs:
-				wt = pu.kin_score_conf(conf, pmax, gmax)
+				wt = self.pu.kin_score_conf(conf, pmax, gmax)
 				conf_weights.append(wt)
 			conf_weights = conf_weights/np.sum(conf_weights)
 			msg = [(pt,wt) for pt, wt in zip(only_confs, conf_weights)]
@@ -403,8 +430,8 @@ class Plan_skeleton:
 			cmax = self.get_best(confs)
 			only_pose = [p[0] for p in poses]
 			pose_weights=[]
-			for pose in only_pose:
-				wt = pu.kin_score_poses(pose, cmax, gmax)
+			for pose in only_pose: 
+				wt = self.pu.kin_score_poses(cmax, pose,gmax)
 				pose_weights.append(wt)
 			pose_weights = pose_weights/np.sum(pose_weights)
 			msg = [(pt,wt) for pt, wt in zip(only_pose, pose_weights)]
@@ -416,10 +443,10 @@ class Plan_skeleton:
 			only_grasps = [g[0] for g in grasps]
 			grasp_weights = []
 			for grasp in only_grasps:
-				wt = pu.kin_score_grasps(grasp, cmax, pmax)
+				wt = self.pu.kin_score_grasps(cmax, pmax,grasp)
 				grasp_weights.append(wt)
 			grasp_weights = grasp_weights/np.sum(grasp_weights)
-			msg = [(pt, wt) in zip(only_grasps, grasp_weights)]
+			msg = [(pt, wt) for pt, wt in zip(only_grasps, grasp_weights)]
 			return msg
 
 		else:
@@ -436,28 +463,36 @@ class PMPNBP:
 			variables = self.hcsp.factor_graph[constraint][1] 
 			for var in variables:
 				var.initialize_with_prior(prior) 
+		print('Done initializing')
+
 
 
 	def pass_variables_to_constraint_msg(self):
 		for constraint in self.hcsp.factor_graph:
-			variables = self.hcsp.factor_graph[constraint][1]
-			const = self.hcsp.factor_graph[constraint][0]
+			variables = self.hcsp.factor_graph[constraint][1] 
+			const = self.hcsp.factor_graph[constraint][0] 
 			for var in variables:
-				msg = var.send_msg_to_constraint(const.name)
-				const.receive_msg_from_variable(var.type, msg)
+				msg = var.send_msg_to_constraint(const.name) 
+				const.receive_msg_from_variable(var.type, msg) 
 
 	def pass_constraint_to_variable_msg(self):
 		for constraint in self.hcsp.factor_graph:
 			variables = self.hcsp.factor_graph[constraint][1]
-			const = self.hcsp.factor_graph[constraint][0]
-			for var in variables:
-				sampled_belief = var.get_sample_from_belief()
+			const = self.hcsp.factor_graph[constraint][0] 
+			for var in variables: 
+				sampled_belief = var.get_sample_from_belief() 
 				msg = const.send_msg_to_variable(sampled_belief, var.name, var.type)
 				var.receive_msg_from_constraint(const.name, msg)
 
-	def pass_messages_across_factor_graph(self): 
-		self.pass_constraint_to_variable_msg()
-		self.pass_variables_to_constraint_msg()
+	def pass_messages_across_factor_graph(self, num_iterations=1):
+		for ite in range(num_iterations):
+			print('Iteration number: ',ite)
+			self.pass_variables_to_constraint_msg()
+			self.pass_constraint_to_variable_msg()
+
+
+
+		
 
 
 
@@ -475,16 +510,16 @@ prior = {pear:[weigted particles of pear position],
 
 if __name__ == '__main__':
 	ps = Plan_skeleton([('get', 'pear'), ('wash','pear'), ('cook','pear')])
-	hcsp = ps.build_hcsp()	
-	ps.print_hcsp(hcsp) 
-	prior = pu.get_prior_belief(num_particles=50, targets=['pear', 'wash-station','stove-station','tray', 'wash-bowl','stove' ])
-	pmpnbp = PMPNBP(hcsp)
-	pmpnbp.initialize_variables_with_prior(prior)
-	pmpnbp.pass_messages_across_factor_graph()
-	
+	# hcsp = ps.build_hcsp()	
+	# ps.print_hcsp(hcsp) 
+	# prior = self.pu.get_prior_belief(num_particles=50, targets=['pear', 'wash-station','stove-station','tray', 'wash-bowl','stove' ])
+	# pmpnbp = PMPNBP(hcsp)
+	# pmpnbp.initialize_variables_with_prior(prior)
+	# pmpnbp.pass_messages_across_factor_graph()
+	plan = ps.get_skeleton() 
 
 	# plan = ps.plan_from('(handempty) (clean pear) (not (in-tray pear)) ',     '(cooked pear)')
-	# print('cook plan: ',plan)
+	print('cook plan: ',plan)
 	# print(ps.get_skeleton())
 
 	'''
