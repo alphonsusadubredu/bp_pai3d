@@ -282,11 +282,14 @@ class Plan_skeleton:
 			act = Action(action[0],action[1])
 			constraints = self.constraints_of_actions[action[0]]
 			cc=[]
+			var=[]
 			for c in constraints:
 				func = self.cfuncs[c]
 				constobj = Constraint_node(c, self.constraints[c], func)
 				cc.append(constobj)
+				var+=cc.variables
 			act.constraints=cc
+			act.variables = var
 			action_skeleton.append(act)
 		return action_skeleton
 
@@ -504,7 +507,7 @@ prior = {pear:[weigted particles of pear position],
 
 '''
 
-
+#hcsp.constrained actions has all actions. We can get their map values from them
 
 
 
