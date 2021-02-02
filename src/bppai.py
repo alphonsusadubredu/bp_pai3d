@@ -7,8 +7,10 @@ class Action:
 	def __init__(self, name, obj=None, constraints=[], variables=[]):
 		self.name = name
 		self.obj = obj
+		self.obj_id = None
 		self.constraints = constraints
 		self.variables = variables
+		self.const_ids=[]
 		self.maps={}
 
 	def get_map_for_variables(self):
@@ -28,9 +30,10 @@ class Variable_node:
 	def send_msg_to_constraint(self, constraint):
 		all_particles = [] 
 		for c in self.weighted_particles:
-			if c is not constraint:
-				all_particles+=self.weighted_particles[c]
+			# if c is not constraint:
+			all_particles+=self.weighted_particles[c]
 		if len(all_particles) == 0:
+			print('using prior')
 			all_particles = self.prior_particles
 		wts = [pw[1] for pw in all_particles]
 		pts = [pw[0] for pw in all_particles]
@@ -39,9 +42,7 @@ class Variable_node:
 		return msg 
 
 
-	def receive_msg_from_constraint(self, constraint, msg):
-		if msg is None:
-			print('No message from: ',constraint)
+	def receive_msg_from_constraint(self, constraint, msg): 
 		self.weighted_particles[constraint] = msg
 
 
@@ -50,7 +51,8 @@ class Variable_node:
 		for c in self.weighted_particles: 
 			if self.weighted_particles[c] is not None:
 				all_particles+=self.weighted_particles[c]
-		if len(all_particles) == 0: 
+		if len(all_particles) == 0:  
+			print('using prior')
 			all_particles = copy.deepcopy(self.prior_particles) 
 		wts = [pw[1] for pw in all_particles]
 		pts = [pw[0] for pw in all_particles]
@@ -73,13 +75,14 @@ class Variable_node:
 		belief = self.belief_update()
 		weights = [w[1] for w in belief]
 		maxind = np.argmax(weights)
-		maxpart = belief[maxind]
+		maxpart = belief[maxind] 
 		return maxpart[0]
 
 
 	def initialize_with_prior(self, prior):
 		if self.action_target != '': 
 			self.prior_pose_particles = prior[self.action_target]
+			self.prior_particles = self.prior_pose_particles
 			
 			if self.action_name == 'put-on-tray' or self.action_name == 'carry-tray':
 				self.prior_pose_particles = prior['tray']
@@ -89,7 +92,8 @@ class Variable_node:
 			elif self.type == "Trajectory":
 				pts = []
 				for (pose,wt) in self.prior_pose_particles:
-					traj = self.pu.plan_arm_trajectory_to(pose) 
+					grasp = self.pu.compute_generic_grasp(pose)
+					traj = self.pu.plan_arm_trajectory_to(grasp) 
 					pts.append((traj,wt))
 				self.prior_particles = pts 
 			elif self.type == "Grasp":
@@ -101,7 +105,8 @@ class Variable_node:
 			elif self.type == "Configuration":
 				pts = []
 				for (pose,wt) in self.prior_pose_particles:
-					conf = self.pu.compute_ik_to_pose(pose)
+					grasp = self.pu.compute_generic_grasp(pose)
+					conf = self.pu.compute_ik_to_pose(grasp)
 					pts.append((conf,wt))
 				self.prior_particles = pts 
 		else:
@@ -287,9 +292,9 @@ class Plan_skeleton:
 				func = self.cfuncs[c]
 				constobj = Constraint_node(c, self.constraints[c], func)
 				cc.append(constobj)
-				var+=cc.variables
+				# var+=c.variables
 			act.constraints=cc
-			act.variables = var
+			# act.variables = var
 			action_skeleton.append(act)
 		return action_skeleton
 
@@ -309,10 +314,11 @@ class Plan_skeleton:
 		hcsp = HCSP()
 		hcsp.constrained_actions = const_actions
 		index = 0
-		for act in const_actions:  
+		for act in hcsp.constrained_actions:  
 			for const in act.constraints: 
 				var_objs = [Variable_node(n[0], n[1], act.name, act.obj,self.pu) for n in const.variables]
 				hcsp.factor_graph[act.name+act.obj+const.name+str(index)] = [const, var_objs]
+				act.const_ids.append(act.name+act.obj+const.name+str(index)) 
 				index +=1
 		return hcsp
 
@@ -321,7 +327,7 @@ class Plan_skeleton:
 		skeleton = self.get_skeleton()
 		constrained_actions = self.assign_constraints_to_actions(skeleton)
 		hcsp = self.build_hcsp_from_constrained_action_skeleton(constrained_actions)
-		hcsp.skeleton = skeleton
+		hcsp.skeleton = skeleton 
 		return hcsp
 
 
@@ -469,7 +475,6 @@ class PMPNBP:
 		print('Done initializing')
 
 
-
 	def pass_variables_to_constraint_msg(self):
 		for constraint in self.hcsp.factor_graph:
 			variables = self.hcsp.factor_graph[constraint][1] 
@@ -492,6 +497,19 @@ class PMPNBP:
 			print('Iteration number: ',ite)
 			self.pass_variables_to_constraint_msg()
 			self.pass_constraint_to_variable_msg()
+
+	def get_fleshed_actions(self):
+		for act in self.hcsp.constrained_actions:
+			const_ids = act.const_ids
+			var = []
+			for c in const_ids:
+				varlist = self.hcsp.factor_graph[c][1]
+				var += varlist
+			act.variables = var
+			act.get_map_for_variables()
+
+
+		return self.hcsp.constrained_actions
 
 
 

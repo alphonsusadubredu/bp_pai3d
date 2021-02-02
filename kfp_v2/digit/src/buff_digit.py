@@ -40,9 +40,9 @@ class Buff_digit:
         time.sleep(5)
         
     def tuck_arm(self, armname, right_side=False, left_side=True): 
-        right_start_conf = [-1.3587102702612153, -0.9894200000000005, 1.68495071580311, 0.20924737443538863, -0.0845840976133051, 0.20295805908247894]
+        right_start_conf = (-1.3587102702612153, -0.9894200000000005, 1.68495071580311, 0.20924737443538863, -0.0845840976133051, 0.20295805908247894)
         self.default_right_conf = right_start_conf
-        left_start_conf = [0, 1.1894200000000005, -1.68495071580311, 0.20924737443538863, -0.0845840976133051, 0.20295805908247894]
+        left_start_conf = (0, 1.1894200000000005, -1.68495071580311, 0.20924737443538863, -0.0845840976133051, 0.20295805908247894)
         if right_side:
             right_start_conf = [0, -1.1894200000000005, 1.68495071580311, 0.20924737443538863, -0.0845840976133051, 0.20295805908247894]
         if not left_side:
@@ -202,6 +202,11 @@ class Buff_digit:
             time.sleep(0.01)
             p.stepSimulation()
 
+    def move_arm_through_trajectory(self, trajectory, armname="right_arm"):
+        joints = self.arm_joints[armname]
+        for conf in trajectory:
+            self.drive_arm_joints(joints, conf) 
+
 
     def plan_and_execute_arm_motion(self, position, orientation, armname): 
         pose = self.tf_arm_frame((position, orientation), armname) 
@@ -224,13 +229,13 @@ class Buff_digit:
 
             if conf is not None:
                 return conf
-            else:
+            else: 
                 return self.default_right_conf
-        except:
+        except: 
             return self.default_right_conf
  
     def get_generic_top_grasp(self, pose): 
-        height = 0.3
+        height = 0.1
         position, _ = pose
         position = list(position)
         position[2]+=(height/1.8)
@@ -267,23 +272,22 @@ class Buff_digit:
         return top_pose
 
 
-    def plan_arm_motion(self, pose, armname, obstacles=[]):
+    def plan_arm_motion(self, pse, armname, obstacles=[]):
         #returns list of joint_confs and the path cost
-        pose = self.tf_arm_frame(pose, armname) 
-        gen = solve_ik(pose[0], pose[1],armname) 
-        conf = next(gen) 
+        pose = self.tf_arm_frame(pse, armname) 
         current_conf = pyplan.get_joint_positions(self.id, self.arm_joints[armname])
-        if conf is None:
-            # try: 
-            #     joint_path = pyplan.plan_joint_motion(self.id, self.arm_joints[armname], conf, obstacles=obstacles, self_collisions=False)
-            # except:
-            
-            joint_path = [current_conf,self.default_right_conf]
+        try:
+            gen = solve_ik(pose[0], pose[1],armname) 
+            a = next(gen)
+            conf = next(gen)  
 
-        else:
-            joint_path = [current_conf, conf]
-
-        return joint_path
+            if conf is not None:
+                return [current_conf,conf]
+            else: 
+                return [current_conf, self.default_right_conf]
+        except: 
+            return [current_conf, self.default_right_conf]
+             
 
 
     def forward_kinematics(self, conf, armname):
@@ -348,12 +352,8 @@ class Buff_digit:
     def score_stable(self, placement):
         return 1
 
-
-
-
-    def hold(self, object_id, armname):
-        ee_id = self.arms_ee[armname]
-        # self.grasped[armname] = p.createConstraint(self.id, ee_id,object_id,-1,p.JOINT_FIXED,[1,0,0],[0,0,0],[0,0,0])
+    def hold(self, object_id, armname='right_arm'):
+        ee_id = self.arms_ee[armname] 
         self.grasped[armname]=pyplan.add_fixed_constraint(object_id, self.id, ee_id)
 
     def release_hold(self, armname):
@@ -363,7 +363,11 @@ class Buff_digit:
         ee_id = self.arms_ee[armname]
         pyplan.remove_fixed_constraint(object_id, self.id, ee_id)
 
-
+    def raise_arm_after_pick(self, armname='right_arm'):
+        pose = pyplan.get_link_pose(self.id, self.arms_ee[armname])
+        position = list(pose[0])
+        position[2]+=0.2 
+        self.plan_and_execute_arm_motion(position, pose[1],armname)
 
     def pick_up(self, object_id, armname):
         grasp_position, grasp_orientation = self.get_top_grasp(object_id)

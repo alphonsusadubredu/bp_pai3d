@@ -82,10 +82,10 @@ class Dining_World:
         p.configureDebugVisualizer(p.COV_ENABLE_GUI,0)
         model_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir)
         p.setAdditionalSearchPath(model_path+'/digit/models')
-        self.item_names=['YcbPear','YcbPottedMeatCan', 'YcbMustardBottle',  'YcbMasterChefCan','YcbStrawberry']#,  'YcbTomatoSoupCan', 'YcbGelatinBox','YcbTennisBall', 'YcbPowerDrill', 'YcbScissors']
+        self.item_names=['YcbPear']#,'YcbPottedMeatCan', 'YcbMustardBottle',  'YcbMasterChefCan','YcbStrawberry']#,  'YcbTomatoSoupCan', 'YcbGelatinBox','YcbTennisBall', 'YcbPowerDrill', 'YcbScissors']
         kitchen_path = 'kitchen_description/urdf/kitchen_part_right_gen_convex.urdf'
-        self.xrange = (0.6, 0.9)
-        self.yrange = (-0.45, -0.2)
+        self.xrange = (0.65, 0.73)
+        self.yrange = (-0.45, -0.25)
         self.base_limits = ((-22.5, -22.5), (22.5, 22.5))
         self.pick_base_pose = [0.2,-0.25,0]
         self.place_base_pose = [0.2,0.25,0]
@@ -103,6 +103,7 @@ class Dining_World:
         p.setGravity(0, 0, -9.81)
         self.object_indices = {"pear":self.ob_idx["YcbPear"],
         "tray":self.tray, "wash-station":self.wash_table, "stove-station":self.kitchen, "wash-bowl":self.wash_bowl, "stove":self.kitchen}
+        self.init_item_properties()
             
              
     def load_objects(self, arr_id=1):
@@ -115,13 +116,22 @@ class Dining_World:
             self.ob_idx[item] = p.loadURDF(os.path.join(ycb_objects.getDataPath(), item, 'model.urdf'), [x,y,1], flags=flags)
         
         # print(self.ob_idx)
+    def init_item_properties(self):
+        self.real_name = {'YcbStrawberry':'strawberry','YcbPottedMeatCan':'meat_can', 'YcbGelatinBox':'gelatin_box', 'YcbMasterChefCan':'masterchef_can', 'YcbPear':'pear' , 'YcbMustardBottle':'mustard', 'YcbTomatoSoupCan':'soup_can', 'YcbTennisBall':'tennis_ball', 'YcbPowerDrill':'drill', 'YcbScissors':'scissors'}
+        self.masses = {'strawberry':'light','meat_can':'heavy', 'gelatin_box':'light', 'masterchef_can':'heavy', 'pear':'light' , 'mustard':'heavy', 'soup_can':'light', 'tennis_ball':'light', 'drill':'heavy', 'scissors':'light'}
+        self.mesh_name = dict([(value, key) for key, value in self.real_name.items()])
+
+    def get_id(self, itemname):
+        mesh_name = self.mesh_name[itemname]
+        iden = self.ob_idx[mesh_name]
+        return iden
 
 
     def sample_pose_from_normal(self, mean_pose, sigma, num_particles):
         xs = np.random.normal(loc=mean_pose[0][0], scale=sigma ,size=num_particles)
         ys = np.random.normal(loc=mean_pose[0][1], scale=sigma ,size=num_particles)
         zs = np.random.normal(loc=mean_pose[0][2], scale=sigma ,size=num_particles)
-        positions = [(x,y,z) for x,y,z in zip(xs,ys,zs)]
+        positions = [(x,y,mean_pose[0][2]) for x,y,z in zip(xs,ys,zs)]
         quats = [mean_pose[1] for _ in range(num_particles)]
         samples = [(pose, qts) for pose,qts in zip(positions, quats)]
         return samples
@@ -134,7 +144,7 @@ class Dining_World:
         return positions
 
 
-    def get_prior_belief(self, num_particles, targets,sigma=0.1):
+    def get_prior_belief(self, num_particles, targets,sigma=0.15):
         prior = {}
         for item in targets:
             if item == "pear":

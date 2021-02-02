@@ -15,7 +15,7 @@ class utils:
 		collision_cost = self.robot.get_traj_obst_cost(traj, armname, obstacles=obstacles)
 		cost_to_goal = self.robot.get_traj_goal_cost(traj, pose_max, armname)
 
-		score = 0.0001*collision_cost + cost_to_goal
+		score = 1/(np.exp(cost_to_goal*100))# 0.00001*collision_cost + 1/(cost_to_goal*10000)
 		return score
 
 
@@ -24,7 +24,7 @@ class utils:
 		1. score is how close pose gets to traj_max's end pose while avoiding  collisions
 		'''
 		cost_to_goal = self.robot.get_traj_goal_cost(traj_max, pose, armname)
-		return cost_to_goal
+		return 1/(np.exp(cost_to_goal*100))
 
 
 	def grasp_score_grasp(self, grasp):
