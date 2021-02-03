@@ -35,7 +35,7 @@ class Buff_digit:
         self.elbow_joints={'left_arm':(8,-1.35), 'right_arm':(21,1.35)}
         self.joint_index_ranges = {'left_arm':(0,6), 
                                    'right_arm':(6,12)} 
-        self.grasped = {'left_arm':0, 'right_arm':0}
+        self.grasped = {'left_arm':[], 'right_arm':[]}
         self.start_up_robot()
         time.sleep(5)
         
@@ -208,7 +208,7 @@ class Buff_digit:
             self.drive_arm_joints(joints, conf) 
 
 
-    def plan_and_execute_arm_motion(self, position, orientation, armname): 
+    def plan_and_execute_arm_motion(self, position, orientation, armname='right_arm'): 
         pose = self.tf_arm_frame((position, orientation), armname) 
         gen = solve_ik(pose[0], pose[1],armname)
         a = next(gen)
@@ -354,10 +354,12 @@ class Buff_digit:
 
     def hold(self, object_id, armname='right_arm'):
         ee_id = self.arms_ee[armname] 
-        self.grasped[armname]=pyplan.add_fixed_constraint(object_id, self.id, ee_id)
+        self.grasped[armname].append(pyplan.add_fixed_constraint(object_id, self.id, ee_id))
 
-    def release_hold(self, armname):
-        p.removeConstraint(self.grasped[armname])
+    def release_hold(self, armname='right_arm'):
+        for const in self.grasped[armname]:
+            p.removeConstraint(const)
+        # p.removeConstraint(self.grasped[armname])
 
     def release_specific_hold(self, object_id, armname):
         ee_id = self.arms_ee[armname]

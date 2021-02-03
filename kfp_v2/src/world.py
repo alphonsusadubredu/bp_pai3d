@@ -89,12 +89,15 @@ class Dining_World:
         self.base_limits = ((-22.5, -22.5), (22.5, 22.5))
         self.pick_base_pose = [0.2,-0.25,0]
         self.place_base_pose = [0.2,0.25,0]
+        self.wash_station = [-1.0,-1.2,-1.57]
+        self.stove_station = [-4.0,0.5,-3.1415 ]
+        self.wash_tray_pose = [[-1.1,-1.7,0.9],[0,0,0,1]]
         with pyplan.HideOutput(enable=True):
             self.floor = p.loadURDF('floor/floor.urdf',useFixedBase=True)
             self.kitchen = p.loadURDF(kitchen_path,[-5,0,1.477],useFixedBase=True)
             self.main_table = p.loadURDF('table/table.urdf',[1.0,0,0], p.getQuaternionFromEuler([0,0,1.57]), useFixedBase=True)
             self.wash_table = p.loadURDF('table/table.urdf',[-1.0,-2.0,0], useFixedBase=True)
-            self.wash_bowl= p.loadURDF('bag/bag.urdf',[-1.0,-1.7,0.9], useFixedBase=False)
+            self.wash_bowl= p.loadURDF('bag/bag.urdf',[-0.8,-1.7,0.9], useFixedBase=True)
             self.dtable1 = p.loadURDF('dinner_table/dinner_table.urdf',[-3.0,4.0,0.4], useFixedBase=True)
             self.dtable2 = p.loadURDF('dinner_table/dinner_table.urdf',[-3.0,8.0,0.4], useFixedBase=True)
             self.dtable3 = p.loadURDF('dinner_table/dinner_table.urdf',[0.0,6.0,0.4], useFixedBase=True)
@@ -102,7 +105,7 @@ class Dining_World:
             self.load_objects()
         p.setGravity(0, 0, -9.81)
         self.object_indices = {"pear":self.ob_idx["YcbPear"],
-        "tray":self.tray, "wash-station":self.wash_table, "stove-station":self.kitchen, "wash-bowl":self.wash_bowl, "stove":self.kitchen}
+        "tray":self.tray, "wash-station":self.wash_station, "stove-station":self.stove_station, "wash-bowl":self.wash_bowl, "stove":self.kitchen}
         self.init_item_properties()
             
              
@@ -144,7 +147,7 @@ class Dining_World:
         return positions
 
 
-    def get_prior_belief(self, num_particles, targets,sigma=0.15):
+    def get_prior_belief(self, num_particles, targets,sigma=0.1):
         prior = {}
         for item in targets:
             if item == "pear":
@@ -154,7 +157,7 @@ class Dining_World:
                 prior['pear'] = particles 
 
             elif item == 'wash-station':
-                mean_pose = [-1.0,-1.0,-1.57]
+                mean_pose = [-1.0,-1.2,-1.57]
                 samples = self.sample_se2_from_normal(mean_pose, sigma, num_particles)
                 particles = [(pt,0.02) for pt in samples]
                 prior['wash-station'] = particles
@@ -167,7 +170,8 @@ class Dining_World:
 
             elif item == 'tray':
                 mean_pose = pyplan.get_pose(self.tray)
-                samples = self.sample_pose_from_normal(mean_pose,sigma,num_particles)
+                position = list(mean_pose[0]); position[1]-=0.15; position[2]+=0.15 
+                samples = self.sample_pose_from_normal((position,mean_pose[1]),sigma,num_particles)
                 particles = [(pt,0.02) for pt in samples]
                 prior['tray'] = particles
 
@@ -181,7 +185,13 @@ class Dining_World:
                 mean_pose = [[-4.1,0.5,0.9 ],[0,0,0,1]]
                 samples = self.sample_pose_from_normal(mean_pose,sigma,num_particles)
                 particles = [(pt,0.02) for pt in samples]
-                prior['stove'] = particles 
+                prior['stove'] = particles
+
+            elif item == 'wash-tray-pose':
+                mean_pose = [[-1.1,-1.7,0.9],[0,0,0,1]]
+                samples = self.sample_pose_from_normal(mean_pose,sigma,num_particles)
+                particles = [(pt,0.02) for pt in samples]
+                prior['wash-tray-pose'] = particles
         return prior 
 
 

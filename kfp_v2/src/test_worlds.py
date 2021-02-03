@@ -197,6 +197,7 @@ def dining_world_test():
         robot.place_at([0.8,0.25,0.95],'right_arm')
         time.sleep(2) 
 
+    '''
     send_item_to_table(['YcbStrawberry','YcbPottedMeatCan'],1)
     time.sleep(2)
     set_table(['YcbStrawberry','YcbPottedMeatCan'])
@@ -206,6 +207,9 @@ def dining_world_test():
     set_table(['YcbGelatinBox','YcbMasterChefCan'])
     go_back_to_counter()
     # p.stopStateLogging()
+    '''
+    path = robot.plan_to_pose(dw.wash_station)
+    robot.drive_along_path(path)
     time.sleep(100)
 
 
@@ -285,4 +289,4 @@ def vhacd():
 
 
 if __name__ == '__main__': 
-    test_grocery_bag() 
+    dining_world_test() 

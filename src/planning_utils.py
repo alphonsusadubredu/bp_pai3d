@@ -1,5 +1,6 @@
 import numpy as np  
 import time
+import pybullet_planning as pyplan
 
 class utils:
 	def __init__(self, robot, world):
@@ -24,7 +25,8 @@ class utils:
 		1. score is how close pose gets to traj_max's end pose while avoiding  collisions
 		'''
 		cost_to_goal = self.robot.get_traj_goal_cost(traj_max, pose, armname)
-		return 1/(np.exp(cost_to_goal*100))
+		score =  1/(np.exp(cost_to_goal*100))
+		return score
 
 
 	def grasp_score_grasp(self, grasp):
@@ -84,3 +86,25 @@ class utils:
 		self.robot.plan_and_drive_to_pose(self.world.pick_base_pose, self.world.base_limits,obstacles=[self.world.main_table]) 
 		time.sleep(2)
 		print('at pile')
+
+	def teleport_to_tray(self):
+		self.init_pose = pyplan.get_base_values(self.robot.id)
+		potential = [self.world.place_base_pose, self.world.wash_station, self.world.stove_station]
+		dists = [0.0,0.0,0.0]
+		current_pose = pyplan.get_base_values(self.robot.id)
+		for i in range(3):
+			dists[i] = np.linalg.norm((np.array(current_pose)[:-2] - np.array(potential[i])[:-2]))
+		ind = np.argmin(dists)
+		pyplan.set_base_values(self.robot.id, potential[ind])
+
+	def get_tray_base_pose(self):
+		potential = [self.world.place_base_pose, self.world.wash_station, self.world.stove_station]
+		dists = [0.0,0.0,0.0]
+		current_pose = pyplan.get_base_values(self.robot.id)
+		for i in range(3):
+			dists[i] = np.linalg.norm((np.array(current_pose)[:-2] - np.array(potential[i])[:-2]))
+		ind = np.argmin(dists)
+		return potential[ind]
+
+	def teleport_back(self):
+		pyplan.set_base_values(self.robot.id, self.init_pose)

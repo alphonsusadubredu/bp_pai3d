@@ -33,7 +33,7 @@ class Variable_node:
 			# if c is not constraint:
 			all_particles+=self.weighted_particles[c]
 		if len(all_particles) == 0:
-			print('using prior')
+			# print('using prior')
 			all_particles = self.prior_particles
 		wts = [pw[1] for pw in all_particles]
 		pts = [pw[0] for pw in all_particles]
@@ -52,7 +52,7 @@ class Variable_node:
 			if self.weighted_particles[c] is not None:
 				all_particles+=self.weighted_particles[c]
 		if len(all_particles) == 0:  
-			print('using prior')
+			# print('using prior')
 			all_particles = copy.deepcopy(self.prior_particles) 
 		wts = [pw[1] for pw in all_particles]
 		pts = [pw[0] for pw in all_particles]
@@ -79,7 +79,94 @@ class Variable_node:
 		return maxpart[0]
 
 
-	def initialize_with_prior(self, prior):
+	def initialize_with_prior(self, prior): 
+		if self.action_target != '': 
+			self.prior_pose_particles = prior[self.action_target]
+			self.prior_particles = prior[self.action_target]
+			
+			if self.action_name == 'put-on-tray' or self.action_name == 'carry-tray':
+				# print('tray initing')
+				self.prior_pose_particles = prior['tray']
+				if self.type == "Pose":
+					self.prior_particles = prior['tray']
+				elif self.type == "Trajectory":
+					pts = []
+					self.pu.teleport_to_tray()
+					for (pose, wt) in self.prior_pose_particles:
+						grasp = self.pu.compute_generic_grasp(pose)
+						traj = self.pu.plan_arm_trajectory_to(grasp) 
+						pts.append((traj,wt))
+					self.pu.teleport_back()
+					self.prior_particles = pts 
+				elif self.type == "Grasp":
+					pts = []
+					self.pu.teleport_to_tray()
+					for (pose,wt) in self.prior_pose_particles:
+						grasp = self.pu.compute_generic_grasp(pose)
+						pts.append((grasp,wt))
+					self.pu.teleport_back()
+					self.prior_particles = pts 
+				elif self.type == "Configuration":
+					pts = []
+					self.pu.teleport_to_tray()
+					for (pose,wt) in self.prior_pose_particles:
+						grasp = self.pu.compute_generic_grasp(pose)
+						conf = self.pu.compute_ik_to_pose(grasp)
+						pts.append((conf,wt))
+					self.pu.teleport_back()
+					self.prior_particles = pts
+
+
+
+			elif self.action_name == 'pick' or self.action_name == 'wash' or self.action_name == 'cook':
+				# print(self.action_name, 'initing')
+				if self.type == "Pose":
+					self.prior_particles = prior[self.action_target]
+				elif self.type == "Trajectory":
+					pts = []
+					for (pose,wt) in self.prior_pose_particles:
+						grasp = self.pu.compute_generic_grasp(pose)
+						traj = self.pu.plan_arm_trajectory_to(grasp) 
+						pts.append((traj,wt))
+					self.prior_particles = pts 
+				elif self.type == "Grasp":
+					pts = []
+					for (pose,wt) in self.prior_pose_particles:
+						grasp = self.pu.compute_generic_grasp(pose)
+						pts.append((grasp,wt))
+					self.prior_particles = pts 
+				elif self.type == "Configuration":
+					pts = []
+					for (pose,wt) in self.prior_pose_particles:
+						grasp = self.pu.compute_generic_grasp(pose)
+						conf = self.pu.compute_ik_to_pose(grasp)
+						pts.append((conf,wt))
+					self.prior_particles = pts 
+		else:
+			if self.action_name == 'go-to-wash-station':
+				self.prior_pose_particles = prior['wash-station']
+				if self.type == "SE2-Pose":
+					self.prior_particles = prior['wash-station']
+				elif self.type == "SE2-Trajectory":
+					pts = []
+					for (pose,wt) in self.prior_pose_particles:
+						traj = self.pu.plan_se2_motion_to(pose)
+						pts.append((traj,wt))
+					self.prior_particles = pts
+
+			elif self.action_name == 'go-to-stove':
+				self.prior_pose_particles = prior['stove-station']
+				if self.type == "SE2-Pose":
+					self.prior_particles = prior['stove-station']
+				elif self.type == "SE2-Trajectory":
+					pts = []
+					for (pose,wt) in self.prior_pose_particles:
+						traj = self.pu.plan_se2_motion_to(pose)
+						pts.append((traj,wt))
+					self.prior_particles = pts  
+
+
+	def initialize_with_prior_old(self, prior):
 		if self.action_target != '': 
 			self.prior_pose_particles = prior[self.action_target]
 			self.prior_particles = self.prior_pose_particles
@@ -226,18 +313,24 @@ class Plan_skeleton:
 			 'go-to-wash-station':['CFree-move'],
 			 'go-to-stove':['CFree-move']
 			}
+		self.instruction_index = {}
 
 
 	def get_skeleton(self):
 		#forward search to densify instructions
 		prev_state = ' (robot-at-foodstuff-station) (handempty) (in-pile pear) (in-pile strawberry) (in-pile meatcan) '
 		skeleton = []
-		for instruction in self.instructions:
+		ind = 0
+		for i,instruction in enumerate(self.instructions):
 			goal_state = self.infer_goal_state(instruction)
 			plan = self.plan_from(prev_state, goal_state) 
-			# print('\n',plan, '\n')
-			skeleton+=plan 
+			print('\n',plan, '\n')
+			if plan is not None:
+				ind += len(plan)
+				self.instruction_index[instruction]=(ind,i)
+				skeleton+=plan 
 			prev_state = goal_state + ' (handempty)'
+		self.skeleton = skeleton 
 		return skeleton
 
 		 
@@ -324,10 +417,10 @@ class Plan_skeleton:
 
 
 	def build_hcsp(self):
-		skeleton = self.get_skeleton()
-		constrained_actions = self.assign_constraints_to_actions(skeleton)
+		# skeleton = self.get_skeleton()
+		constrained_actions = self.assign_constraints_to_actions(self.skeleton)
 		hcsp = self.build_hcsp_from_constrained_action_skeleton(constrained_actions)
-		hcsp.skeleton = skeleton 
+		hcsp.skeleton = self.skeleton 
 		return hcsp
 
 
@@ -468,6 +561,7 @@ class PMPNBP:
 
 
 	def initialize_variables_with_prior(self, prior):
+		print('initializing values')
 		for constraint in self.hcsp.factor_graph:
 			variables = self.hcsp.factor_graph[constraint][1] 
 			for var in variables:
@@ -541,6 +635,7 @@ if __name__ == '__main__':
 
 	# plan = ps.plan_from('(handempty) (clean pear) (not (in-tray pear)) ',     '(cooked pear)')
 	print('cook plan: ',plan)
+	print('instruction index: ', ps.instruction_index)
 	# print(ps.get_skeleton())
 
 	'''
