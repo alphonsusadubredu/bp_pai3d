@@ -82,16 +82,18 @@ class Dining_World:
         p.configureDebugVisualizer(p.COV_ENABLE_GUI,0)
         model_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir)
         p.setAdditionalSearchPath(model_path+'/digit/models')
-        self.item_names=['YcbPear']#,'YcbPottedMeatCan', 'YcbMustardBottle',  'YcbMasterChefCan','YcbStrawberry']#,  'YcbTomatoSoupCan', 'YcbGelatinBox','YcbTennisBall', 'YcbPowerDrill', 'YcbScissors']
+        self.item_names=['YcbPear']#YcbPottedMeatCan', 'YcbMustardBottle',  'YcbMasterChefCan','YcbStrawberry']#,  'YcbTomatoSoupCan', 'YcbGelatinBox','YcbTennisBall', 'YcbPowerDrill', 'YcbScissors']
         kitchen_path = 'kitchen_description/urdf/kitchen_part_right_gen_convex.urdf'
         self.xrange = (0.65, 0.73)
         self.yrange = (-0.45, -0.25)
         self.base_limits = ((-22.5, -22.5), (22.5, 22.5))
         self.pick_base_pose = [0.2,-0.25,0]
         self.place_base_pose = [0.2,0.25,0]
-        self.wash_station = [-1.0,-1.2,-1.57]
-        self.stove_station = [-4.0,0.5,-3.1415 ]
+        self.wash_station = [-1.1,-1.2,-1.57]
+        self.wash_station_bowl = [-0.8, -1.2, -1.57]
+        self.stove_station = [-4.3,1,-3.1415 ]
         self.wash_tray_pose = [[-1.1,-1.7,0.9],[0,0,0,1]]
+        self.stove_tray_pose = [[-4.4,1,0.9 ],[0,0,0,1]]
         with pyplan.HideOutput(enable=True):
             self.floor = p.loadURDF('floor/floor.urdf',useFixedBase=True)
             self.kitchen = p.loadURDF(kitchen_path,[-5,0,1.477],useFixedBase=True)
@@ -147,7 +149,7 @@ class Dining_World:
         return positions
 
 
-    def get_prior_belief(self, num_particles, targets,sigma=0.1):
+    def get_prior_belief(self, num_particles, targets,sigma=0.001):
         prior = {}
         for item in targets:
             if item == "pear":
@@ -157,35 +159,42 @@ class Dining_World:
                 prior['pear'] = particles 
 
             elif item == 'wash-station':
-                mean_pose = [-1.0,-1.2,-1.57]
+                mean_pose = self.wash_station
                 samples = self.sample_se2_from_normal(mean_pose, sigma, num_particles)
                 particles = [(pt,0.02) for pt in samples]
                 prior['wash-station'] = particles
 
             elif item == 'stove-station':
-                mean_pose = [-4.0,0.5,-3.1415 ]
+                mean_pose = self.stove_station 
                 samples = self.sample_se2_from_normal(mean_pose, sigma, num_particles)
                 particles = [(pt,0.02) for pt in samples]
                 prior['stove-station'] = particles
 
             elif item == 'tray':
                 mean_pose = pyplan.get_pose(self.tray)
-                position = list(mean_pose[0]); position[1]-=0.15; position[2]+=0.15 
+                position = list(mean_pose[0]); position[2]+=0.15 #; position[1]-=0.15; 
                 samples = self.sample_pose_from_normal((position,mean_pose[1]),sigma,num_particles)
                 particles = [(pt,0.02) for pt in samples]
                 prior['tray'] = particles
 
             elif item == 'wash-bowl':
                 mean_pose = pyplan.get_pose(self.wash_bowl)
-                samples = self.sample_pose_from_normal(mean_pose,sigma,num_particles)
+                position = list(mean_pose[0]); position[2]+=0.1
+                samples = self.sample_pose_from_normal((position, mean_pose[1]),sigma,num_particles)
                 particles = [(pt,0.02) for pt in samples]
                 prior['wash-bowl'] = particles
 
             elif item == 'stove':
-                mean_pose = [[-4.1,0.5,0.9 ],[0,0,0,1]]
+                mean_pose = [[-4.1,0.5,1 ],[0,0,0,1]]
                 samples = self.sample_pose_from_normal(mean_pose,sigma,num_particles)
                 particles = [(pt,0.02) for pt in samples]
                 prior['stove'] = particles
+
+            elif item == 'stove-tray-pose':
+                mean_pose = [[-4.3,1,0.9 ],[0,0,0,1]]
+                samples = self.sample_pose_from_normal(mean_pose,sigma,num_particles)
+                particles = [(pt,0.02) for pt in samples]
+                prior['stove-tray-pose'] = particles
 
             elif item == 'wash-tray-pose':
                 mean_pose = [[-1.1,-1.7,0.9],[0,0,0,1]]

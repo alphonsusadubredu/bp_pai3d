@@ -20,9 +20,9 @@ class Action_Model:
 
 	def execute_action(self, action):
 		success = True 
+		print(action.name, action.obj)
 		try:
-			if action.name == 'pick':
-				print(action.name, action.obj)
+			if action.name == 'pick': 
 				trajectory = action.maps['Trajectory'] 
 				# pose = action.maps['Pose']
 				# grasp = self.pu.compute_generic_grasp(pose)
@@ -36,11 +36,11 @@ class Action_Model:
 				eepose = pyplan.get_link_pose(self.robot.id, self.robot.arms_ee['right_arm'])
 				dist = np.linalg.norm((np.array(eepose[0])[:2] - np.array(obpose[0])[:2]))
 				print('dist to pick target: ',dist)
-				success = success and (dist < 0.1)
+				success = success and (dist < 0.2)
+				if not success: self.robot.release_hold()
 				time.sleep(2) 
 
-			elif action.name == 'put-on-tray':
-				print(action.name, action.obj)
+			elif action.name == 'put-on-tray': 
 				basepose = self.pu.get_tray_base_pose()
 				self.robot.plan_and_drive_to_pose(basepose)
 				time.sleep(3)
@@ -59,19 +59,18 @@ class Action_Model:
 				traypose = pyplan.get_pose(self.world.object_indices['tray'])
 				dist = np.linalg.norm((np.array(traypose[0])[:2] - np.array(obpose[0])[:2]))
 				print('dist to put-on-tray target: ',dist)
-				success = success and (dist < 0.15)
+				success = success and (dist < 0.2)
 				time.sleep(2) 
  
-			elif action.name == 'carry-tray':
-				print(action.name, action.obj)
+			elif action.name == 'carry-tray': 
 
-				# trajectory = action.maps['Trajectory']  
-				# self.robot.move_arm_through_trajectory(trajectory)
+				trajectory = action.maps['Trajectory']  
+				self.robot.move_arm_through_trajectory(trajectory)
 
-				grasp = action.maps['Grasp']
+				# grasp = action.maps['Grasp']
 				# grasp = self.pu.compute_generic_grasp(pose)
 				# position = list(grasp[0]); position[2]-=0.1
-				self.robot.plan_and_execute_arm_motion(grasp[0],grasp[1]) 
+				# self.robot.plan_and_execute_arm_motion(grasp[0],grasp[1]) 
 
 				time.sleep(5)
 				obid = self.world.get_id(action.obj)
@@ -85,11 +84,16 @@ class Action_Model:
 				dist = np.linalg.norm((np.array(eepose[0])[:2] - np.array(traypose[0])[:2]))
 				print('dist to carry-tray target: ',dist)
 				success = success and (dist < 0.2)
+				if not success: self.robot.release_hold()
 				time.sleep(2)  
 
 			elif action.name == 'go-to-wash-station':
-				path = action.maps['SE2-Trajectory']
-				self.robot.drive_along_path(path)
+				# path = action.maps['SE2-Trajectory']
+				# self.robot.drive_along_path(path)
+				basepose = action.maps['SE2-Pose']
+				self.robot.plan_and_drive_to_pose(basepose)
+				# self.robot.plan_and_drive_to_pose(self.world.wash_station)
+				
 				time.sleep(2)
 
 				basepose = pyplan.get_base_values(self.robot.id)
@@ -99,8 +103,46 @@ class Action_Model:
 				self.robot.plan_and_execute_arm_motion(grasp[0], grasp[1])
 				self.robot.release_hold()
 				self.robot.raise_arm_after_pick()
-				success = success and (dist < 0.1)
+				success = success and (dist < 0.2)
 				time.sleep(2)   
+
+			elif action.name == 'wash':  
+				self.robot.plan_and_drive_to_pose(self.world.wash_station_bowl)
+				time.sleep(2)
+				pose = action.maps['Pose']
+				grasp = self.pu.compute_generic_grasp(pose)
+				self.robot.plan_and_execute_arm_motion(grasp[0],grasp[1])
+				# trajectory = action.maps['Trajectory']
+				# self.robot.move_arm_through_trajectory(trajectory)
+				time.sleep(2)
+				self.robot.release_hold()
+				time.sleep(2)
+				success = True
+
+			elif action.name == 'cook':
+				trajectory = action.maps['Trajectory']
+				self.robot.move_arm_through_trajectory(trajectory)
+				time.sleep(2)
+				self.robot.release_hold()
+				time.sleep(2)
+				success = True
+
+			elif action.name == 'go-to-stove':
+				basepose = action.maps['SE2-Pose']
+				self.robot.plan_and_drive_to_pose(basepose)
+				time.sleep(2)
+
+				basepose = pyplan.get_base_values(self.robot.id)
+				dist = np.linalg.norm((np.array(basepose[:2]) - np.array(self.world.stove_station[:2])))
+				print('dist to stove_station: ',dist)
+				grasp = self.pu.compute_generic_grasp(self.world.stove_tray_pose)
+				self.robot.plan_and_execute_arm_motion(grasp[0], grasp[1])
+				self.robot.release_hold()
+				self.robot.raise_arm_after_pick()
+				success = success and (dist < 0.2)
+				time.sleep(2)
+
+
 
 
 

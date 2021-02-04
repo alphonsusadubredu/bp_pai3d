@@ -358,7 +358,8 @@ class Buff_digit:
 
     def release_hold(self, armname='right_arm'):
         for const in self.grasped[armname]:
-            p.removeConstraint(const)
+            p.removeConstraint(const) 
+        self.grasped[armname]=[]
         # p.removeConstraint(self.grasped[armname])
 
     def release_specific_hold(self, object_id, armname):

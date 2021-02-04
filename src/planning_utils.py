@@ -106,5 +106,11 @@ class utils:
 		ind = np.argmin(dists)
 		return potential[ind]
 
+	def teleport_to(self, place):
+		self.init_pose = pyplan.get_base_values(self.robot.id)
+		places = {'wash-station':self.world.wash_station,'stove-station':self.world.stove_station, 'pile-station':self.world.place_base_pose}
+		pose = places[place]
+		pyplan.set_base_values(self.robot.id, pose)
+
 	def teleport_back(self):
 		pyplan.set_base_values(self.robot.id, self.init_pose)

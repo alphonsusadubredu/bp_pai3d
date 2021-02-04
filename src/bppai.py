@@ -118,7 +118,7 @@ class Variable_node:
 
 
 
-			elif self.action_name == 'pick' or self.action_name == 'wash' or self.action_name == 'cook':
+			elif self.action_name == 'pick':
 				# print(self.action_name, 'initing')
 				if self.type == "Pose":
 					self.prior_particles = prior[self.action_target]
@@ -142,6 +142,68 @@ class Variable_node:
 						conf = self.pu.compute_ik_to_pose(grasp)
 						pts.append((conf,wt))
 					self.prior_particles = pts 
+
+			elif self.action_name == 'wash':
+				if self.type == "Pose":
+					self.prior_particles = prior['wash-bowl']
+				elif self.type == "Trajectory":
+					pts = []
+					self.pu.teleport_to('wash-station')
+					for (pose,wt) in prior['wash-bowl']:
+						grasp = self.pu.compute_generic_grasp(pose)
+						traj = self.pu.plan_arm_trajectory_to(grasp) 
+						pts.append((traj,wt))
+					self.prior_particles = pts 
+					self.pu.teleport_back()
+				elif self.type == "Grasp":
+					pts = []
+					self.pu.teleport_to('wash-station')
+					for (pose,wt) in prior['wash-bowl']:
+						grasp = self.pu.compute_generic_grasp(pose)
+						pts.append((grasp,wt))
+					self.prior_particles = pts 
+					self.pu.teleport_back()
+				elif self.type == "Configuration":
+					pts = []
+					self.pu.teleport_to('wash-station')
+					for (pose,wt) in prior['wash-bowl']:
+						grasp = self.pu.compute_generic_grasp(pose)
+						conf = self.pu.compute_ik_to_pose(grasp)
+						pts.append((conf,wt))
+					self.prior_particles = pts 
+					self.pu.teleport_back()
+
+			elif self.action_name == 'cook':
+				if self.type == "Pose":
+					self.prior_particles = prior['stove']
+				elif self.type == "Trajectory":
+					pts = []
+					self.pu.teleport_to('stove-station')
+					for (pose,wt) in prior['stove']:
+						grasp = self.pu.compute_generic_grasp(pose)
+						traj = self.pu.plan_arm_trajectory_to(grasp) 
+						pts.append((traj,wt))
+					self.prior_particles = pts 
+					self.pu.teleport_back()
+				elif self.type == "Grasp":
+					pts = []
+					self.pu.teleport_to('stove-station')
+					for (pose,wt) in prior['stove']:
+						grasp = self.pu.compute_generic_grasp(pose)
+						pts.append((grasp,wt))
+					self.prior_particles = pts 
+					self.pu.teleport_back()
+				elif self.type == "Configuration":
+					pts = []
+					self.pu.teleport_to('stove-station')
+					for (pose,wt) in prior['stove']:
+						grasp = self.pu.compute_generic_grasp(pose)
+						conf = self.pu.compute_ik_to_pose(grasp)
+						pts.append((conf,wt))
+					self.prior_particles = pts 
+					self.pu.teleport_back()
+				
+
 		else:
 			if self.action_name == 'go-to-wash-station':
 				self.prior_pose_particles = prior['wash-station']

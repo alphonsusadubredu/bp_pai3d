@@ -11,7 +11,7 @@ from action_model import Action_Model
 
 np.random.seed(42)
 instructions = [('get', 'pear'), ('wash','pear'), ('cook','pear')]
-objects_of_interest = ['pear', 'wash-station','stove-station','tray', 'wash-bowl','stove','wash-tray-pose' ]
+objects_of_interest = ['pear', 'wash-station','stove-station','tray', 'wash-bowl','stove','wash-tray-pose' , 'stove-tray-pose']
 
 if __name__ == '__main__':
 	client = p.connect(p.GUI)
