@@ -120,10 +120,21 @@ class Action_Model:
 				success = True
 
 			elif action.name == 'cook':
-				trajectory = action.maps['Trajectory']
-				self.robot.move_arm_through_trajectory(trajectory)
+				# trajectory = action.maps['Trajectory']
+				# self.robot.move_arm_through_trajectory(trajectory)
+				# time.sleep(2)
+				# self.robot.release_hold()
+				# time.sleep(2)
+				# success = True
+
+				obid = self.world.get_id(action.obj)
+				self.robot.pick_up(obid)
 				time.sleep(2)
-				self.robot.release_hold()
+				stove_pose = [-4.1,0.2,-3.1415]
+				self.robot.plan_and_drive_to_pose(stove_pose, self.world.base_limits, obstacles=[self.world.kitchen])
+				time.sleep(2)
+				place_pose =  [-4.8, 0.5,0.9] 
+				self.robot.place_at(place_pose, obid)
 				time.sleep(2)
 				success = True
 

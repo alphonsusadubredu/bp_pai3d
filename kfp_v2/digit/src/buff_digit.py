@@ -372,7 +372,7 @@ class Buff_digit:
         position[2]+=0.2 
         self.plan_and_execute_arm_motion(position, pose[1],armname)
 
-    def pick_up(self, object_id, armname):
+    def pick_up(self, object_id, armname='right_arm'):
         grasp_position, grasp_orientation = self.get_top_grasp(object_id)
         self.plan_and_execute_arm_motion(grasp_position, grasp_orientation,armname)
         time.sleep(3) 
@@ -390,7 +390,7 @@ class Buff_digit:
         self.plan_and_execute_arm_motion(grasp_position, grasp_orientation,armname)
 
 
-    def place_at(self, position, object_id, armname):
+    def place_at(self, position, object_id, armname='right_arm'):
         position = list(position)
         orientation = p.getQuaternionFromEuler((0,1.57,0))
         intermediate_position = position; intermediate_position[2]+=0.2
