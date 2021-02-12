@@ -5,7 +5,7 @@ import pybullet_data
 from pybullet_object_models import ycb_objects, graspa_layouts
 import pybullet_planning as pyplan
 import numpy as np
-from world import Grocery_World, Dining_World, Grocery_Bag
+from world import Grocery_World, Dining_World, Apartment_World, Grocery_Bag
 
 np.random.seed(0)
 
@@ -31,6 +31,9 @@ def test_elenas_code():
     while 1:
         p.stepSimulation()
         time.sleep(1./240)
+
+
+
 
 def grocery_test():
     client = p.connect(p.GUI)
@@ -197,7 +200,6 @@ def dining_world_test():
         robot.place_at([0.8,0.25,0.95],'right_arm')
         time.sleep(2) 
 
-    '''
     send_item_to_table(['YcbStrawberry','YcbPottedMeatCan'],1)
     time.sleep(2)
     set_table(['YcbStrawberry','YcbPottedMeatCan'])
@@ -207,9 +209,6 @@ def dining_world_test():
     set_table(['YcbGelatinBox','YcbMasterChefCan'])
     go_back_to_counter()
     # p.stopStateLogging()
-    '''
-    path = robot.plan_to_pose(dw.wash_station)
-    robot.drive_along_path(path)
     time.sleep(100)
 
 
@@ -276,17 +275,70 @@ def test_grocery_bag():
         time.sleep(100)
 
 
+def apartment_test():
+    client = p.connect(p.GUI, options='--background_color_red=0.0 --background_color_green=0.0 --background_color_blue=0.0')
+    p.configureDebugVisualizer(p.COV_ENABLE_GUI,0)
+    p.resetDebugVisualizerCamera(3, 90, -30, [0.0, -0.0, -0.0])
+    script_path = os.path.dirname(os.path.realpath(__file__))
+    os.sys.path.append(os.path.realpath(script_path + '/../'))
+    from digit.src.buff_digit import Buff_digit  
+    
+    with pyplan.HideOutput(enable=True):
+        p.setGravity(0, 0, -9.81)
+        aw = Apartment_World()
+        robot = Buff_digit(client)
+        # pyplan.set_pose(robot.id, pyplan.Pose(pyplan.Point(x=8,y=-2.5,z=0.05)))
+        time.sleep(5)  
+        print(pyplan.get_pose(robot.id))
+        # time.sleep(5) 
+    
+    p.setRealTimeSimulation(1) 
+    base_limits = ((-60, -60), (60, 60))
+
+    def go_to_cabinet():
+        pose = aw.cabinet_open_base_pose
+        robot.plan_and_drive_to_pose(pose, base_limits, obstacles=aw.apartment_bodies)
+    # pose1 = [8,-2.5,0]
+    # pose2 = [-6,0,1.57]
+    # center = [0,0,0] 
+    # orig = pyplan.get_base_values(robot.id)
+    
+    # pyplan.set_base_values(robot.id, center)
+    # path_center_to_go  = robot.plan_to_pose(pose2,base_limits,obstacles=aw.apartment_bodies)
+
+    # pyplan.set_base_values(robot.id, pose2)
+    # path_go_to_center  = robot.plan_to_pose(center,base_limits,obstacles=aw.apartment_bodies)
+
+    # pyplan.set_base_values(robot.id, center)
+    # path_center_to_come = robot.plan_to_pose(pose1,base_limits,obstacles=aw.apartment_bodies)
+
+    # pyplan.set_base_values(robot.id, pose1)
+    # path_come_to_center = robot.plan_to_pose(center,base_limits,obstacles=aw.apartment_bodies)
+
+    # pyplan.set_base_values(robot.id, orig)
+    # for i in range(10): 
+    #     robot.drive_along_path(path_center_to_go)
+    #     time.sleep(1) 
+    #     robot.drive_along_path(path_go_to_center)
+    #     time.sleep(1)
+    #     robot.drive_along_path(path_center_to_come)
+    #     time.sleep(1)
+    #     robot.drive_along_path(path_come_to_center)
+    #     time.sleep(1)
+    go_to_cabinet()
+    time.sleep(1000)
 
 
 
 def vhacd():
     p.connect(p.DIRECT)
-    name_in = '/home/bill/garage/kfp_v2/digit/models/tray/tray.obj'
-    name_out = "/home/bill/garage/kfp_v2/digit/models/tray/tray_vhacd.obj"
+    name_in = '/home/bill/garage/kfp_v2/src/models/aws_robomaker_residential_KitchenCabinet_01/meshes/object.obj'
+    name_out = "/home/bill/garage/kfp_v2/src/models/aws_robomaker_residential_KitchenCabinet_01/meshes/object_vhacd.obj"
     name_log = "log.txt"
     p.vhacd(name_in, name_out, name_log, alpha=0.04,resolution=50000 )
 
 
 
 if __name__ == '__main__': 
-    dining_world_test() 
+    apartment_test() 
+    # vhacd()

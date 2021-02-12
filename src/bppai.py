@@ -365,7 +365,7 @@ class Plan_skeleton:
 					   'Grasp':self.grasp_func,
 					   'CFree-move':self.se2_func}
 		self.domain_path = 'pddl/cook_domain.pddl' 
-		self.ingredients = ['pear']#,'strawberry', 'meatcan']
+		self.ingredients = ['meat_can']#,'strawberry', 'meatcan']
 		self.constraints_of_actions = {
 			 'pick':['CFree', 'Kin', 'Grasp'],
 			 'put-on-tray':['CFree','Kin', 'Stable'],
@@ -380,7 +380,7 @@ class Plan_skeleton:
 
 	def get_skeleton(self):
 		#forward search to densify instructions
-		prev_state = ' (robot-at-foodstuff-station) (handempty) (in-pile pear) (in-pile strawberry) (in-pile meatcan) '
+		prev_state = ' (robot-at-foodstuff-station) (handempty) (in-pile meat_can) (in-pile strawberry) (in-pile meatcan) '
 		skeleton = []
 		ind = 0
 		for i,instruction in enumerate(self.instructions):
@@ -686,7 +686,7 @@ prior = {pear:[weigted particles of pear position],
 
 
 if __name__ == '__main__':
-	ps = Plan_skeleton([('get', 'pear'), ('wash','pear'), ('cook','pear')])
+	ps = Plan_skeleton([('get', 'meat_can'), ('wash','meat_can'), ('cook','meat_can')])
 	# hcsp = ps.build_hcsp()	
 	# ps.print_hcsp(hcsp) 
 	# prior = self.pu.get_prior_belief(num_particles=50, targets=['pear', 'wash-station','stove-station','tray', 'wash-bowl','stove' ])

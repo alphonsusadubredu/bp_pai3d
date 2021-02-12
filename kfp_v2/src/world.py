@@ -5,7 +5,7 @@ import pybullet_data
 from pybullet_object_models import ycb_objects, graspa_layouts
 import pybullet_planning as pyplan
 import numpy as np
-
+from pybullet_utils import gazebo_world_parser
 
 
 class Grocery_World:
@@ -82,7 +82,7 @@ class Dining_World:
         p.configureDebugVisualizer(p.COV_ENABLE_GUI,0)
         model_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir)
         p.setAdditionalSearchPath(model_path+'/digit/models')
-        self.item_names=['YcbPear']#YcbPottedMeatCan', 'YcbMustardBottle',  'YcbMasterChefCan','YcbStrawberry']#,  'YcbTomatoSoupCan', 'YcbGelatinBox','YcbTennisBall', 'YcbPowerDrill', 'YcbScissors']
+        self.item_names=['YcbPottedMeatCan']#YcbPear, YcbPottedMeatCan', 'YcbMustardBottle',  'YcbMasterChefCan','YcbStrawberry']#,  'YcbTomatoSoupCan', 'YcbGelatinBox','YcbTennisBall', 'YcbPowerDrill', 'YcbScissors']
         kitchen_path = 'kitchen_description/urdf/kitchen_part_right_gen_convex.urdf'
         self.xrange = (0.65, 0.73)
         self.yrange = (-0.45, -0.25)
@@ -94,6 +94,7 @@ class Dining_World:
         self.stove_station = [-4.3,1,-3.1415 ]
         self.wash_tray_pose = [[-1.1,-1.7,0.9],[0,0,0,1]]
         self.stove_tray_pose = [[-4.4,1,0.9 ],[0,0,0,1]]
+        self.burner_position = [-4.8, 0.65,0.9] 
         with pyplan.HideOutput(enable=True):
             self.floor = p.loadURDF('floor/floor.urdf',useFixedBase=True)
             self.kitchen = p.loadURDF(kitchen_path,[-5,0,1.477],useFixedBase=True)
@@ -106,7 +107,7 @@ class Dining_World:
             self.tray = p.loadURDF('tray/tray.urdf',[0.8,0.25,0.9],p.getQuaternionFromEuler([0,0,-1.57]) )
             self.load_objects()
         p.setGravity(0, 0, -9.81)
-        self.object_indices = {"pear":self.ob_idx["YcbPear"],
+        self.object_indices = {"meat_can":self.ob_idx["YcbPottedMeatCan"],
         "tray":self.tray, "wash-station":self.wash_station, "stove-station":self.stove_station, "wash-bowl":self.wash_bowl, "stove":self.kitchen}
         self.init_item_properties()
             
@@ -152,11 +153,11 @@ class Dining_World:
     def get_prior_belief(self, num_particles, targets,sigma=0.001):
         prior = {}
         for item in targets:
-            if item == "pear":
-                mean_pose = pyplan.get_pose(self.object_indices['pear'])
+            if item == "meat_can":
+                mean_pose = pyplan.get_pose(self.object_indices['meat_can'])
                 samples = self.sample_pose_from_normal(mean_pose,sigma,num_particles)
                 particles = [(pt,0.02) for pt in samples]
-                prior['pear'] = particles 
+                prior['meat_can'] = particles 
 
             elif item == 'wash-station':
                 mean_pose = self.wash_station
@@ -204,7 +205,39 @@ class Dining_World:
         return prior 
 
 
+class Apartment_World:
+    def __init__(self, seed=0):
+        model_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir) 
+        p.setAdditionalSearchPath(model_path+'/digit/models')
+        floor = p.loadURDF('floor/black_floor.urdf',[0,0,0.05],useFixedBase=True)
+        p.configureDebugVisualizer(p.COV_ENABLE_RENDERING,0) 
+        self.apartment_bodies = gazebo_world_parser.parseWorld( p, filepath =  "worlds/small_house.world")
+        p.configureDebugVisualizer(p.COV_ENABLE_RENDERING,1)
+        with pyplan.HideOutput(enable=True):
+            self.cabinet = p.loadURDF('cabinet/cabinet.urdf',[8.7,-1.8, 0.75], p.getQuaternionFromEuler((0,0,3.1415)), useFixedBase=True)
+            self.apartment_bodies.append(self.cabinet)
+        self.init_items()
+        self.init_constants()
 
+    def init_items(self):
+        x,y,z = (8.7,-1.8, 1.75)
+        # item = 'YcbPear'
+        item = 'YcbPottedMeatCan'
+        flags = p.URDF_USE_INERTIA_FROM_FILE
+        pear = p.loadURDF(os.path.join(ycb_objects.getDataPath(), item, 'model.urdf'), [x,y,z], flags=flags)
+
+    def init_constants(self):
+        self.cabinet_open_base_pose = (7.5, -1.8, 0)
+
+    def get_drawer_id(self, drawer_name):
+        self.drawers = {
+        'top_left': 'dof_rootd_Aa001_t',
+        'top_right': 'dof_rootd_Aa002_t',
+        'middle':'dof_rootd_Aa003_t'
+        }
+        link_name = self.drawers[drawer_name]
+        link_id = pyplan.get_link_from_name(self.cabinet, link_name)
+        return link_id
 
 
 

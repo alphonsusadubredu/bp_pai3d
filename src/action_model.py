@@ -132,9 +132,8 @@ class Action_Model:
 				time.sleep(2)
 				stove_pose = [-4.1,0.2,-3.1415]
 				self.robot.plan_and_drive_to_pose(stove_pose, self.world.base_limits, obstacles=[self.world.kitchen])
-				time.sleep(2)
-				place_pose =  [-4.8, 0.5,0.9] 
-				self.robot.place_at(place_pose, obid)
+				time.sleep(2) 
+				self.robot.place_at(self.world.burner_position, obid)
 				time.sleep(2)
 				success = True
 
