@@ -242,6 +242,14 @@ class Buff_digit:
         orientation = p.getQuaternionFromEuler((0,1.57,0))
         return position, orientation 
 
+    def get_generic_side_grasp(self, pose):
+        width = 0.1
+        position, _ = pose 
+        position = list(position)
+        position[0] -= (width/2.0)
+        orientation = p.getQuaternionFromEuler((1.57,0,0))
+        return position, orientation 
+
     def get_top_grasp(self, object_id):
         aabb = p.getAABB(object_id)
         height = aabb[1][2] - aabb[0][2]
@@ -371,6 +379,7 @@ class Buff_digit:
         position = list(pose[0])
         position[2]+=0.2 
         self.plan_and_execute_arm_motion(position, pose[1],armname)
+        time.sleep(5)
 
     def pick_up(self, object_id, armname='right_arm'):
         grasp_position, grasp_orientation = self.get_top_grasp(object_id)
@@ -424,7 +433,67 @@ class Buff_digit:
         up_vector = rot_matrix.dot(init_up_vector)
         view_matrix = p.computeViewMatrix(com_p+ 0.25 * camera_vector, com_p + 100 * camera_vector, up_vector)
         imgs = p.getCameraImage(640, 640, view_matrix, projection_matrix)
-        return imgs 
+        return imgs
+
+
+    def add_fixed_link_constraint(self, body, body_link, armname='right_arm',max_force=None):
+        from pybullet_planning.interfaces.env_manager.pose_transformation import get_pose, unit_point, unit_quat, multiply, invert
+        from pybullet_planning.interfaces.robots import get_com_pose, get_link_pose
+ 
+        body_pose = get_link_pose(body, body_link) 
+        ee = self.arms_ee[armname]
+        end_effector_pose = get_com_pose(self.id, ee)
+        grasp_pose = multiply(invert(end_effector_pose), body_pose)
+        point, quat = grasp_pose 
+        constraint = p.createConstraint(self.id, ee, body, body_link,  
+                                        p.JOINT_FIXED, jointAxis=unit_point(),
+                                        parentFramePosition=point,
+                                        childFramePosition=unit_point(),
+                                        parentFrameOrientation=quat,
+                                        childFrameOrientation=unit_quat(),
+                                        physicsClientId=self.client)
+        if max_force is not None:
+            p.changeConstraint(constraint, maxForce=max_force, physicsClientId=CLIENT)
+        return constraint 
+
+
+    def open_drawer(self, cabinet, drawer_link, armname='right_arm'):
+        drawer_pose = pyplan.get_link_pose(cabinet, drawer_link)
+        drawer_position = list(drawer_pose[0])
+        # robot_pose = list(pyplan.get_base_values(self.id))
+        drawer_position[0] -= 0.3
+        drawer_position[2] += 0.05
+        grasp = self.get_generic_side_grasp((drawer_position,drawer_pose[1])) 
+        self.plan_and_execute_arm_motion(grasp[0],grasp[1],armname)
+        time.sleep(5) 
+        drawer_position[0] -= 0.22
+        grasp = self.get_generic_side_grasp((drawer_position,drawer_pose[1]))
+        self.plan_and_execute_arm_motion(grasp[0],grasp[1],armname) 
+        p.setJointMotorControl2(bodyIndex=cabinet, jointIndex=drawer_link, controlMode=p.POSITION_CONTROL, targetPosition=0.2, maxVelocity=0.5)
+        time.sleep(5)
+
+    def close_drawer(self, cabinet, drawer_link, armname='right_arm'):
+        drawer_pose = pyplan.get_link_pose(cabinet, drawer_link)
+        drawer_position = list(drawer_pose[0]) 
+        drawer_position[0] -= 0.3
+        drawer_position[2] += 0.05
+        grasp = self.get_generic_side_grasp((drawer_position,drawer_pose[1])) 
+        self.plan_and_execute_arm_motion(grasp[0],grasp[1],armname)
+        time.sleep(5) 
+
+        drawer_position[0] += 0.22
+        grasp = self.get_generic_side_grasp((drawer_position,drawer_pose[1]))
+        self.plan_and_execute_arm_motion(grasp[0],grasp[1],armname) 
+        p.setJointMotorControl2(bodyIndex=cabinet, jointIndex=drawer_link, controlMode=p.POSITION_CONTROL, targetPosition=0.0, maxVelocity=0.5)
+        time.sleep(5)
+
+    def press_dial(self, dial_position, armname='right_arm'):
+        approach =  self.get_generic_top_grasp((dial_position,(0,0,0,1))) 
+        self.plan_and_execute_arm_motion(approach[0], approach[1], armname)
+        time.sleep(5)
+        self.raise_arm_after_pick()
+        time.sleep(2)
+
 
         
 

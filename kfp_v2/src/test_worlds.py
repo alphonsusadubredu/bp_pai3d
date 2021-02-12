@@ -289,7 +289,7 @@ def apartment_test():
         robot = Buff_digit(client)
         # pyplan.set_pose(robot.id, pyplan.Pose(pyplan.Point(x=8,y=-2.5,z=0.05)))
         time.sleep(5)  
-        print(pyplan.get_pose(robot.id))
+        # print(pyplan.get_pose(robot.id))
         # time.sleep(5) 
     
     p.setRealTimeSimulation(1) 
@@ -325,7 +325,23 @@ def apartment_test():
     #     time.sleep(1)
     #     robot.drive_along_path(path_come_to_center)
     #     time.sleep(1)
-    go_to_cabinet()
+    aw.put_item_in_drawer('top_right')
+    go_to_cabinet() 
+    robot.open_drawer(aw.cabinet, aw.get_drawer_id('top_right') ) 
+    robot.raise_arm_after_pick() 
+    current_pose = pyplan.get_base_values(robot.id)
+    current_pose = list(current_pose)
+    current_pose[0]+=0.2
+    robot.plan_and_drive_to_pose(current_pose)
+    robot.pick_up(aw.meat)
+    time.sleep(3)
+    # robot.plan_and_drive_to_pose(aw.sink_base_pose)
+    # time.sleep(3)
+    robot.plan_and_drive_to_pose(aw.stove_base_pose)
+    time.sleep(3)
+    robot.place_at(aw.stove_surface_pose, aw.meat) 
+    robot.press_dial(aw.stove_dial)
+
     time.sleep(1000)
 
 

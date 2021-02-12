@@ -220,23 +220,37 @@ class Apartment_World:
         self.init_constants()
 
     def init_items(self):
-        x,y,z = (8.7,-1.8, 1.75)
+        x,y,z = (8.7,-1.8, 1.35)
         # item = 'YcbPear'
         item = 'YcbPottedMeatCan'
         flags = p.URDF_USE_INERTIA_FROM_FILE
-        pear = p.loadURDF(os.path.join(ycb_objects.getDataPath(), item, 'model.urdf'), [x,y,z], flags=flags)
-
-    def init_constants(self):
-        self.cabinet_open_base_pose = (7.5, -1.8, 0)
-
-    def get_drawer_id(self, drawer_name):
+        self.meat = p.loadURDF(os.path.join(ycb_objects.getDataPath(), item, 'model.urdf'), [x,y,z], flags=flags)
         self.drawers = {
         'top_left': 'dof_rootd_Aa001_t',
         'top_right': 'dof_rootd_Aa002_t',
         'middle':'dof_rootd_Aa003_t'
         }
+
+    def init_constants(self):
+        self.cabinet_open_base_pose = (7.65, -1.6, 0)
+        self.sink_base_pose = (8, -4.3, -1.57)
+        self.stove_base_pose = (8.21, -3.5, 0)
+        self.sink_bottom_pose = (8, -4.6, 1.0)
+        self.stove_surface_pose = (8.93, -3.3, 1.1)
+        self.stove_dial = (8.85, -3.4, 0.9)
+
+    def put_item_in_drawer(self, drawer_name): 
+        link_id = self.get_drawer_id(drawer_name)
+        pose = pyplan.get_link_pose(self.cabinet, link_id)
+        point = list(pose[0])
+        point[0]-=0.15
+        pyplan.set_point(self.meat, point)
+
+
+    def get_drawer_id(self, drawer_name):
+        
         link_name = self.drawers[drawer_name]
-        link_id = pyplan.get_link_from_name(self.cabinet, link_name)
+        link_id = pyplan.link_from_name(self.cabinet, link_name)
         return link_id
 
 
