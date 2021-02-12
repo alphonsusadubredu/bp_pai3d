@@ -335,8 +335,20 @@ def apartment_test():
     robot.plan_and_drive_to_pose(current_pose)
     robot.pick_up(aw.meat)
     time.sleep(3)
-    # robot.plan_and_drive_to_pose(aw.sink_base_pose)
-    # time.sleep(3)
+    robot.plan_and_drive_to_pose(aw.sink_base_pose)
+    time.sleep(3)
+    #wash
+    robot.plan_and_execute_arm_motion(aw.sink_bottom_pose, p.getQuaternionFromEuler((1.57,0,0)))
+    time.sleep(4)
+    robot.release_hold()
+    robot.tuck_arm()
+    # robot.raise_arm_after_pick()
+    time.sleep(5)
+    robot.pick_up(aw.meat)
+    time.sleep(3)
+    # robot.raise_arm_after_pick()
+
+    #cook
     robot.plan_and_drive_to_pose(aw.stove_base_pose)
     time.sleep(3)
     robot.place_at(aw.stove_surface_pose, aw.meat) 

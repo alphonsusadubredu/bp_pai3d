@@ -233,17 +233,17 @@ class Apartment_World:
 
     def init_constants(self):
         self.cabinet_open_base_pose = (7.65, -1.6, 0)
-        self.sink_base_pose = (8, -4.3, -1.57)
+        self.sink_base_pose = (8.1, -4.3, -1.57)
         self.stove_base_pose = (8.21, -3.5, 0)
-        self.sink_bottom_pose = (8, -4.6, 1.0)
-        self.stove_surface_pose = (8.93, -3.3, 1.1)
+        self.sink_bottom_pose = (8, -5.0, 1.0)
+        self.stove_surface_pose = (8.9, -3.3, 1.1)
         self.stove_dial = (8.85, -3.4, 0.9)
 
     def put_item_in_drawer(self, drawer_name): 
         link_id = self.get_drawer_id(drawer_name)
         pose = pyplan.get_link_pose(self.cabinet, link_id)
         point = list(pose[0])
-        point[0]-=0.15
+        point[0]-=0.18
         pyplan.set_point(self.meat, point)
 
 

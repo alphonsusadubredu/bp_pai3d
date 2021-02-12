@@ -39,7 +39,7 @@ class Buff_digit:
         self.start_up_robot()
         time.sleep(5)
         
-    def tuck_arm(self, armname, right_side=False, left_side=True): 
+    def tuck_arm(self, armname='right_arm', right_side=False, left_side=True): 
         right_start_conf = (-1.3587102702612153, -0.9894200000000005, 1.68495071580311, 0.20924737443538863, -0.0845840976133051, 0.20295805908247894)
         self.default_right_conf = right_start_conf
         left_start_conf = (0, 1.1894200000000005, -1.68495071580311, 0.20924737443538863, -0.0845840976133051, 0.20295805908247894)
@@ -255,7 +255,7 @@ class Buff_digit:
         height = aabb[1][2] - aabb[0][2]
         position, _ = pyplan.get_pose(object_id)
         position = list(position)
-        position[2]+=(height/1.8)
+        position[2]+=(height/2)
         orientation = p.getQuaternionFromEuler((0,1.57,0))
         return position, orientation 
 
