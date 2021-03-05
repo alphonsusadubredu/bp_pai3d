@@ -1,2 +1,4 @@
 src/FastDownward
 src/*.pyc
+src/data*
+src/SS_Action_Model.py
