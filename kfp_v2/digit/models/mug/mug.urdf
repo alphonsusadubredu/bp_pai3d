@@ -1,0 +1,32 @@
+<?xml version="0.0" ?>
+<robot name="mug">
+  <link name="baseLink">
+    <contact>
+      <lateral_friction value="1.0"/>
+      <inertia_scaling value="3.0"/>
+    </contact>
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+       <mass value=".002"/>
+       <inertia ixx="0.1" ixy="0" ixz="0" iyy="0.1" iyz="0" izz="0.1"/>
+    </inertial>
+    <visual>
+      <origin rpy="1.5707 0 0" xyz="0 0 0.08"/>
+      <geometry>
+        <mesh filename="mug.obj" scale="1.5 2 1.5 "/>
+      </geometry>
+      <material name="brown">
+        <color rgba="0.8 0.8 0.8 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="1.5707 0 0" xyz="0 0 0.08"/>
+      <geometry>
+       <!-- <mesh filename="bag2.obj" scale="1 1 1"/> -->
+        <mesh filename="mug.obj" scale=" 1.5 2 1.5"/>
+
+        <!-- <box size="0.5 0.3 0.2"/> -->
+      </geometry>
+    </collision>
+  </link>
+</robot>

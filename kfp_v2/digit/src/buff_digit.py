@@ -6,8 +6,12 @@ import pybullet_planning as pyplan
 from pybullet_planning import Pose, Point
 # from trac_ik_python.trac_ik import IK
 import sys
+
 import os
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir))
+print(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+import grasps as gp
 from utils.ikfast.digit_ik import solve_ik, solve_fk
 
 def ikfunc(pose):
@@ -39,14 +43,17 @@ class Buff_digit:
         self.start_up_robot()
         time.sleep(5)
         
-    def tuck_arm(self, armname='right_arm', right_side=False, left_side=True): 
+    def tuck_arm(self, armname='right_arm', flat=False, right_side=False, left_side=True): 
         right_start_conf = (-1.3587102702612153, -0.9894200000000005, 1.68495071580311, 0.20924737443538863, -0.0845840976133051, 0.20295805908247894)
         self.default_right_conf = right_start_conf
-        left_start_conf = (0, 1.1894200000000005, -1.68495071580311, 0.20924737443538863, -0.0845840976133051, 0.20295805908247894)
+        # left_start_conf = (0, 1.1894200000000005, -1.68495071580311, 0.20924737443538863, -0.0845840976133051, 0.20295805908247894)
+        left_start_conf = (0,0,0,0,0,0)
         if right_side:
             right_start_conf = [0, -1.1894200000000005, 1.68495071580311, 0.20924737443538863, -0.0845840976133051, 0.20295805908247894]
         if not left_side:
             left_start_conf = [-1.3587102702612153, 0.9894200000000005, -1.68495071580311, 0.20924737443538863, -0.0845840976133051, 0.20295805908247894]
+        if flat:
+            self.drive_arm_joints(self.arm_joints[armname], (0,0,0,0,0,0))
         if armname == 'left_arm':
             self.drive_arm_joints(self.arm_joints[armname], left_start_conf)
         else:
@@ -56,7 +63,7 @@ class Buff_digit:
 
     def start_up_robot(self):
         self.lowerLimits,self.upperLimits,self.jointRanges,self.restPoses = self.get_joint_ranges()
-        self.tuck_arm('left_arm')
+        # self.tuck_arm('left_arm')
         self.tuck_arm('right_arm') 
         self.get_camera_images()
 
@@ -94,6 +101,33 @@ class Buff_digit:
         path = pyplan.plan_base_motion(self.id, goal_pose, limits,obstacles=obstacles)
         # self.follow_path(path)
         self.drive_along_path(path)
+
+    def plan_and_drive_to_pose_diff(self, goal_pose,limits=None,num_path = 50):
+        current_pose = pyplan.get_base_values(self.id)
+        dist = np.linalg.norm(np.array(current_pose)[:2]-np.array(goal_pose)[:2])
+        target_heading = np.arctan2(goal_pose[1] - current_pose[1], goal_pose[0]-current_pose[0])
+        init_ors = np.linspace(current_pose[2], target_heading,num_path)
+        init_xs = [current_pose[0]]*num_path
+        init_ys = [current_pose[1]]*num_path
+        init_or_path = [(x,y,th) for x,y,th in zip(init_xs, init_ys, init_ors)]
+        self.drive_along_path(init_or_path)
+
+        current_pose = pyplan.get_base_values(self.id)
+        xxs = np.linspace(current_pose[0],goal_pose[0],int(num_path*dist))
+        xarr = [current_pose[0], goal_pose[0]]
+        yarr = [current_pose[1], goal_pose[1]] 
+        yys = np.linspace(yarr[0], yarr[1], int(num_path*dist))
+        orrs = [current_pose[2]]*int(num_path*dist)
+        trans_path = [(x,y,th) for x,y,th in zip(xxs,yys, orrs)] 
+        self.drive_along_path(trans_path)
+
+        current_pose = pyplan.get_base_values(self.id)
+        goal_ors = np.linspace(current_pose[2], goal_pose[2], num_path)
+        final_xs = [current_pose[0]]*num_path
+        final_ys = [current_pose[1]]*num_path
+        final_or_path = [(x,y,th) for x,y,th in zip(final_xs, final_ys, goal_ors)]
+        self.drive_along_path(final_or_path)
+
 
     def plan_to_pose(self, goal_pose, limits=((-12.5, -12.5), (12.5, 12.5)) ,obstacles=[]):
         path = pyplan.plan_base_motion(self.id, goal_pose, limits,obstacles=obstacles)
@@ -255,7 +289,7 @@ class Buff_digit:
         height = aabb[1][2] - aabb[0][2]
         position, _ = pyplan.get_pose(object_id)
         position = list(position)
-        position[2]+=(height/2)
+        position[2]+=(height/2.5)
         orientation = p.getQuaternionFromEuler((0,1.57,0))
         return position, orientation 
 
@@ -264,9 +298,26 @@ class Buff_digit:
         width = aabb[1][0] - aabb[0][0]
         position, _ = pyplan.get_pose(object_id)
         position = list(position)
-        position[0] -=(width/2.0)
+        position[1] +=(width)
         orientation = p.getQuaternionFromEuler((1.57,0,0))
         return position, orientation 
+
+    def get_side_grasps(self, object_id):
+        grasps = gp.get_side_grasps(object_id) 
+        print('relative opt: ', grasps[2])
+        transformed_grasps = []
+        pose = pyplan.get_pose(object_id) 
+        for g in grasps:
+            gpose = pyplan.multiply(pose, pyplan.invert(g))
+            transformed_grasps.append(gpose)
+        return transformed_grasps
+
+    def sample_grasp(self, object_id):
+        aabb = p.getAABB(object_id)
+        width = aabb[1][0] - aabb[0][0]
+        height = aabb[1][2] - aabb[0][2]
+        position, _ = pyplan.get_pose(object_id) 
+
 
     def get_put_on_pose(self, topid, bottomid):
         bot_pose = pyplan.get_point(bottomid)
@@ -354,6 +405,21 @@ class Buff_digit:
         cost = np.linalg.norm(np.array(ee_position) - np.array(grasp[0]))
         return cost
 
+    def score_graspc(self, conf, grasp, pose, pose2, conf2, opt):
+        grasp_orr = np.array(p.getEulerFromQuaternion(grasp[1]))
+        opt_orr = p.getEulerFromQuaternion(opt[1])
+        cost = np.linalg.norm((grasp_orr - np.array(opt_orr)))
+        return cost
+
+    def score_conf_graspc(self, conf, grasp, pose, armname='right_arm'): 
+        ee_position, ee_orientation = self.forward_kinematics(conf, armname)
+        pose_cost = np.linalg.norm((np.array(ee_position) - np.array(grasp[0]))) 
+        ee_euler = p.getEulerFromQuaternion(ee_orientation)
+        grasp_euler = p.getEulerFromQuaternion(grasp[1])
+        orientation_cost = np.linalg.norm((np.array(ee_euler)-np.array(grasp_euler)))
+        return pose_cost+orientation_cost
+
+
     def score_grasp(self, grasp):
         return 1
 
@@ -377,21 +443,45 @@ class Buff_digit:
     def raise_arm_after_pick(self, armname='right_arm'):
         pose = pyplan.get_link_pose(self.id, self.arms_ee[armname])
         position = list(pose[0])
-        position[2]+=0.2 
+        position[2]+=0.1 
         self.plan_and_execute_arm_motion(position, pose[1],armname)
         time.sleep(5)
 
-    def pick_up(self, object_id, armname='right_arm'):
+    def pour(self, bowl, armname='right_arm'):
+        bowl_position = pyplan.get_point(bowl)
+        above = list(bowl_position); above[2]+=0.3
+        _,current_or = pyplan.get_link_pose(self.id, self.arms_ee[armname])
+        self.plan_and_execute_arm_motion(above, current_or, armname)
+        time.sleep(5)
+
+        cp,cr = pyplan.get_link_pose(self.id, self.arms_ee[armname])
+        self.plan_and_execute_arm_motion(cp, p.getQuaternionFromEuler((1.57,0,0)))
+        time.sleep(10)
+
+        self.plan_and_execute_arm_motion(cp, current_or)
+        time.sleep(5)
+
+
+
+
+    def pick_up(self, object_id, armname='right_arm',grasp='top'):
         grasp_position, grasp_orientation = self.get_top_grasp(object_id)
+        if grasp == 'side':
+            grasp_position, grasp_orientation = self.get_side_grasp(object_id)
         self.plan_and_execute_arm_motion(grasp_position, grasp_orientation,armname)
         time.sleep(3) 
+        ee_id = self.arms_ee[armname]
+        ee_pose = pyplan.get_link_pose(self.id, ee_id)
+        ob_pose = pyplan.get_point(object_id) 
+        ob_point = list(ee_pose[0]); ob_point[2] = ob_pose[2] 
+        pyplan.set_point(object_id, ob_point)
         self.hold(object_id, armname) 
         grasp_position[2] += 0.2
         self.plan_and_execute_arm_motion(grasp_position, grasp_orientation,armname)
 
     def pick_up_tray(self, object_id, armname):
         grasp_position, grasp_orientation = self.get_top_grasp(object_id)
-        grasp_position = list(grasp_position); grasp_position[2]+=0.1
+        grasp_position = list(grasp_position); grasp_position[2]+=0.1;grasp_position[0]-=0.1; 
         self.plan_and_execute_arm_motion(grasp_position, grasp_orientation,armname)
         time.sleep(3) 
         self.hold(object_id, armname) 
@@ -399,9 +489,11 @@ class Buff_digit:
         self.plan_and_execute_arm_motion(grasp_position, grasp_orientation,armname)
 
 
-    def place_at(self, position, object_id, armname='right_arm'):
+    def place_at(self, position, object_id, grasp='top', armname='right_arm'):
         position = list(position)
         orientation = p.getQuaternionFromEuler((0,1.57,0))
+        if grasp == 'side':
+            orientation = p.getQuaternionFromEuler((0,0,0))
         intermediate_position = position; intermediate_position[2]+=0.2
         self.plan_and_execute_arm_motion(intermediate_position,orientation,armname)
         time.sleep(2)
@@ -423,9 +515,8 @@ class Buff_digit:
         fov, aspect, nearplane, farplane = 80, 1.0, 0.01, 100
         projection_matrix = p.computeProjectionMatrixFOV(fov, aspect, nearplane, farplane)
         com_p, com_o, _, _, _, _ = p.getLinkState(self.id, eyeid) 
-        rot_matrix = p.getMatrixFromQuaternion(com_o)#p.getQuaternionFromEuler((1.5707,0.866,0)))
-        rot_matrix = np.array(rot_matrix).reshape(3, 3)
-        # Initial vectors
+        rot_matrix = p.getMatrixFromQuaternion(com_o)# 
+        rot_matrix = np.array(rot_matrix).reshape(3, 3) 
         init_camera_vector = (1, 0, 0) # z-axis
         init_up_vector = (0, 1, 0) # y-axis
         # Rotated vectors
@@ -454,7 +545,9 @@ class Buff_digit:
                                         physicsClientId=self.client)
         if max_force is not None:
             p.changeConstraint(constraint, maxForce=max_force, physicsClientId=CLIENT)
-        return constraint 
+        return constraint
+
+
 
 
     def open_drawer(self, cabinet, drawer_link, armname='right_arm'):
@@ -481,10 +574,10 @@ class Buff_digit:
         self.plan_and_execute_arm_motion(grasp[0],grasp[1],armname)
         time.sleep(5) 
 
-        drawer_position[0] += 0.22
-        grasp = self.get_generic_side_grasp((drawer_position,drawer_pose[1]))
-        self.plan_and_execute_arm_motion(grasp[0],grasp[1],armname) 
-        p.setJointMotorControl2(bodyIndex=cabinet, jointIndex=drawer_link, controlMode=p.POSITION_CONTROL, targetPosition=0.0, maxVelocity=0.5)
+        # drawer_position[0] += 0.22
+        # grasp = self.get_generic_side_grasp((drawer_position,drawer_pose[1]))
+        # self.plan_and_execute_arm_motion(grasp[0],grasp[1],armname) 
+        p.setJointMotorControl2(bodyIndex=cabinet, jointIndex=drawer_link, controlMode=p.POSITION_CONTROL, targetPosition=0.0)#, maxVelocity=0.5)
         time.sleep(5)
 
     def press_dial(self, dial_position, armname='right_arm'):

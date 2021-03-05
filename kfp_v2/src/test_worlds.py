@@ -5,7 +5,8 @@ import pybullet_data
 from pybullet_object_models import ycb_objects, graspa_layouts
 import pybullet_planning as pyplan
 import numpy as np
-from world import Grocery_World, Dining_World, Apartment_World, Grocery_Bag
+from world import Grocery_World, Dining_World, Apartment_World, Grocery_Bag, Apt_Grocery_World
+from PIL import Image 
 
 np.random.seed(0)
 
@@ -55,29 +56,7 @@ def grocery_test():
         robot = Buff_digit(client) 
         time.sleep(5)
         gw = Grocery_World()
-        p.setGravity(0, 0, -9.81)
-
-    # time.sleep(2)
-    '''
-    # for item in gw.ob_idx:
-    #     time.sleep(2)
-    #     banana = gw.ob_idx[item]
-    #     grasp_position, grasp_orientation = robot.get_top_grasp(banana)
-    #     robot.plan_and_execute_arm_motion(grasp_position, grasp_orientation,'left_arm')
-    #     time.sleep(7)
-    #     robot.hold(banana, 'left_arm')
-    #     time.sleep(3)
-    #     bag_position, bag_orientation = [grasp_position[0],grasp_position[1],1.1],p.getQuaternionFromEuler((1.57,1.57,0))
-    #     robot.plan_and_execute_arm_motion(bag_position, bag_orientation,'left_arm')
-    #     time.sleep(5)
-    #     bag_position, bag_orientation = [0.8,0.35,1.2],p.getQuaternionFromEuler((1.57,1.57,0))
-    #     robot.plan_and_execute_arm_motion(bag_position, bag_orientation,'left_arm')
-    #     time.sleep(5) 
-    #     robot.release_hold('left_arm')
-    #     time.sleep(2)
-    #     bag_position, bag_orientation = [0.8,0.35,1.2],p.getQuaternionFromEuler((1.57,1.57,0))
-    #     robot.plan_and_execute_arm_motion(bag_position, bag_orientation,'left_arm')
-    '''
+        p.setGravity(0, 0, -9.81) 
     logID = p.startStateLogging(p.STATE_LOGGING_GENERIC_ROBOT, 'packing.log')
     pick_base_pose = [0.2,-0.25,0]
     place_base_pose = [0.2,0.25,0]
@@ -275,6 +254,8 @@ def test_grocery_bag():
         time.sleep(100)
 
 
+
+
 def apartment_test():
     client = p.connect(p.GUI, options='--background_color_red=0.0 --background_color_green=0.0 --background_color_blue=0.0')
     p.configureDebugVisualizer(p.COV_ENABLE_GUI,0)
@@ -297,71 +278,289 @@ def apartment_test():
 
     def go_to_cabinet():
         pose = aw.cabinet_open_base_pose
-        robot.plan_and_drive_to_pose(pose, base_limits, obstacles=aw.apartment_bodies)
-    # pose1 = [8,-2.5,0]
-    # pose2 = [-6,0,1.57]
-    # center = [0,0,0] 
-    # orig = pyplan.get_base_values(robot.id)
+        robot.plan_and_drive_to_pose(pose, base_limits )
+
+    def check_cabinet_and_get_item():
+        aw.put_items_in_drawer('middle')
+        go_to_cabinet()
+        # robot.open_drawer(aw.cabinet, aw.get_drawer_id('middle') ) 
+        # time.sleep(3)
+        # robot.close_drawer(aw.cabinet, aw.get_drawer_id('middle') )
+        # time.sleep(3)
+        robot.open_drawer(aw.cabinet, aw.get_drawer_id('top-right') ) 
+        time.sleep(3)
+        robot.close_drawer(aw.cabinet, aw.get_drawer_id('top-right') )
+        time.sleep(3)
+        robot.open_drawer(aw.cabinet, aw.get_drawer_id('middle') )
+        robot.raise_arm_after_pick() 
+        current_pose = pyplan.get_base_values(robot.id)
+        current_pose = list(current_pose)
+        current_pose[0]+=0.2
+        robot.plan_and_drive_to_pose(current_pose)
+        robot.pick_up(aw.ob_idx['YcbPear'])
+        time.sleep(3)
+        current_pose = pyplan.get_base_values(robot.id)
+        current_pose = list(current_pose)
+        current_pose[0]-=0.4
+        current_pose[1]-=0.7
+        robot.plan_and_drive_to_pose(current_pose)
+        robot.close_drawer(aw.cabinet, aw.get_drawer_id('middle'),armname='left_arm' )
+        current_pose = pyplan.get_base_values(robot.id)
+        current_pose = list(current_pose)
+        current_pose[0]-=0.2        
+        robot.plan_and_drive_to_pose(current_pose)
+        robot.tuck_arm('left_arm',left_side=True)
+        time.sleep(3)
+
+
+    def wash_food():
+        robot.plan_and_drive_to_pose(aw.sink_base_pose)
+        time.sleep(3)
+        robot.plan_and_execute_arm_motion(aw.sink_bottom_pose, p.getQuaternionFromEuler((1.57,0,0)))
+        time.sleep(9)
+        # robot.release_hold()
+        # robot.tuck_arm()
+        # robot.raise_arm_after_pick()
+        # time.sleep(5)
+        # robot.pick_up(aw.meat)
+        # time.sleep(3)
+        # # robot.raise_arm_after_pick()
+
+
+    def cook():
+        robot.plan_and_drive_to_pose(aw.stove_base_pose)
+        time.sleep(3)
+        robot.place_at(aw.stove_surface_pose, aw.ob_idx['YcbPear'])
+        time.sleep(2)
+
+    def cook_finish():
+        robot.plan_and_drive_to_pose(aw.stove_base_pose)
+        time.sleep(5)
+        robot.press_dial(aw.stove_dial) 
+
+    def put_food_in_tray():
+        robot.raise_arm_after_pick()
+        current_pose = pyplan.get_base_values(robot.id)
+        current_pose = list(current_pose)
+        current_pose[1]+=0.2        
+        robot.plan_and_drive_to_pose(current_pose)
+        robot.pick_up(aw.ob_idx['YcbPear'])
+        time.sleep(3)
+        robot.plan_and_drive_to_pose(aw.tray_base_pose)
+        time.sleep(2)
+        robot.place_at(aw.tray_surface_pose, aw.ob_idx['YcbPear'])
+        time.sleep(4)
+        pyplan.set_point(aw.ob_idx['YcbPear'], aw.tray_surface_pose)
+        # robot.tuck_arm('left_arm',left_side=False)
+        # robot.tuck_arm('right_arm',right_side=True)
+        robot.pick_up_tray(aw.tray, armname='right_arm')
+        robot.hold(aw.ob_idx['YcbPear'])
+        current_pose = pyplan.get_base_values(robot.id)
+        current_pose = list(current_pose)
+        current_pose[0]-=1        
+        robot.plan_and_drive_to_pose(current_pose)
+
+    def serve_food():
+        robot.plan_and_drive_to_pose(aw.diningtable_base_pose)
+        time.sleep(3)
+        robot.place_at(aw.diningtable_surface_pose, aw.tray) 
+        time.sleep(3)
+        robot.pick_up(aw.ob_idx['YcbPear'])
+        time.sleep(3)
+        robot.plan_and_drive_to_pose(aw.plate_base_pose)
+        time.sleep(3)
+        robot.place_at(aw.plate_surface_pose, aw.ob_idx['YcbPear'])
+        time.sleep(3)
+        robot.plan_and_drive_to_pose(aw.diningtable_base_pose)
+        robot.tuck_arm('right_arm',right_side=True)
+
+    def get_cup():
+        robot.tuck_arm()
+        robot.plan_and_drive_to_pose(aw.mug_base_pose)
+        # pyplan.set_base_values(robot.id, aw.mug_base_pose)
+        time.sleep(5)
+        try:
+            # robot.raise_arm_after_pick()
+            robot.raise_arm_after_pick()
+            grasps = robot.get_side_grasps(aw.mug)
+            # mc=pyplan.add_fixed_constraint(aw.mug, aw.stand, -1) 
+            robot.plan_and_execute_arm_motion(grasps[2][0], grasps[2][1])
+            time.sleep(5)
+            # p.remove_constraint(mc)
+            # time.sleep(1)
+            p = list(grasps[2][0]); p[2] = pyplan.get_point(aw.mug)[2]; p[0]+=0.07
+            pyplan.set_point(aw.mug, p)
+            robot.hold(aw.mug)
+        except Exception as e:
+            print(e)
+            get_cup()
+        robot.raise_arm_after_pick()
+
+    def fill_cup_with_water():
+        robot.plan_and_drive_to_pose(aw.sink_base_pose)
+        # pyplan.set_base_values(robot.id, aw.sink_base_pose)
+        time.sleep(3)
+        robot.plan_and_execute_arm_motion(aw.sink_bottom_pose, p.getQuaternionFromEuler((0,0,0)))
+        time.sleep(9)
+
+    def pour_in_saucepan():
+        robot.plan_and_drive_to_pose(aw.stove_base_pose)
+        # pyplan.set_base_values(robot.id, aw.stove_base_pose)
+        robot.pour(aw.saucepan)
+        time.sleep(3)
+
+    def place_mug_back():
+        robot.plan_and_drive_to_pose(aw.mug_base_pose)
+        # pyplan.set_base_values(robot.id, aw.mug_base_pose)
+        time.sleep(3)
+        robot.place_at(aw.mug_surface_pose, aw.mug, grasp='side')
+        time.sleep(3)
+
+
+
+    def photo_ob():
+        #robot1
+        aw.put_items_in_drawer('top_right')
+        go_to_cabinet()
+        time.sleep(5)
+        robot.open_drawer(aw.cabinet, aw.get_drawer_id('top_right') )
+
+        #robot2
+        robot2 = Buff_digit(client)
+        robot2.plan_and_drive_to_pose(aw.sink_base_pose)
+        time.sleep(3)
+        robot2.plan_and_execute_arm_motion(aw.sink_bottom_pose, p.getQuaternionFromEuler((1.57,0,0)))
+
+        #robot3
+        robot3 = Buff_digit(client)
+        robot3.plan_and_drive_to_pose(aw.stove_base_pose)
+        time.sleep(3)
+        robot3.press_dial(aw.stove_dial)
+
+
+        #robot4
+        robot4 = Buff_digit(client)
+        robot4.plan_and_drive_to_pose(aw.diningtable_base_pose)
+        time.sleep(3)
+
+
     
-    # pyplan.set_base_values(robot.id, center)
-    # path_center_to_go  = robot.plan_to_pose(pose2,base_limits,obstacles=aw.apartment_bodies)
 
-    # pyplan.set_base_values(robot.id, pose2)
-    # path_go_to_center  = robot.plan_to_pose(center,base_limits,obstacles=aw.apartment_bodies)
+    '''
+    pose1 = [8,-2.5,0]
+    pose2 = [-6,0,1.57]
+    center = [0,0,0] 
+    orig = pyplan.get_base_values(robot.id)
+    
+    pyplan.set_base_values(robot.id, center)
+    path_center_to_go  = robot.plan_to_pose(pose2,base_limits,obstacles=aw.apartment_bodies)
 
-    # pyplan.set_base_values(robot.id, center)
-    # path_center_to_come = robot.plan_to_pose(pose1,base_limits,obstacles=aw.apartment_bodies)
+    pyplan.set_base_values(robot.id, pose2)
+    path_go_to_center  = robot.plan_to_pose(center,base_limits,obstacles=aw.apartment_bodies)
 
-    # pyplan.set_base_values(robot.id, pose1)
-    # path_come_to_center = robot.plan_to_pose(center,base_limits,obstacles=aw.apartment_bodies)
+    pyplan.set_base_values(robot.id, center)
+    path_center_to_come = robot.plan_to_pose(pose1,base_limits,obstacles=aw.apartment_bodies)
 
-    # pyplan.set_base_values(robot.id, orig)
-    # for i in range(10): 
-    #     robot.drive_along_path(path_center_to_go)
-    #     time.sleep(1) 
-    #     robot.drive_along_path(path_go_to_center)
-    #     time.sleep(1)
-    #     robot.drive_along_path(path_center_to_come)
-    #     time.sleep(1)
-    #     robot.drive_along_path(path_come_to_center)
-    #     time.sleep(1)
-    aw.put_item_in_drawer('top_right')
-    go_to_cabinet() 
-    robot.open_drawer(aw.cabinet, aw.get_drawer_id('top_right') ) 
-    robot.raise_arm_after_pick() 
-    current_pose = pyplan.get_base_values(robot.id)
-    current_pose = list(current_pose)
-    current_pose[0]+=0.2
-    robot.plan_and_drive_to_pose(current_pose)
-    robot.pick_up(aw.meat)
-    time.sleep(3)
-    robot.plan_and_drive_to_pose(aw.sink_base_pose)
-    time.sleep(3)
+    pyplan.set_base_values(robot.id, pose1)
+    path_come_to_center = robot.plan_to_pose(center,base_limits,obstacles=aw.apartment_bodies)
+
+    pyplan.set_base_values(robot.id, orig)
+    for i in range(10): 
+        robot.drive_along_path(path_center_to_go)
+        time.sleep(1) 
+        robot.drive_along_path(path_go_to_center)
+        time.sleep(1)
+        robot.drive_along_path(path_center_to_come)
+        time.sleep(1)
+        robot.drive_along_path(path_come_to_center)
+        time.sleep(1)
+    '''
+ 
+    
     #wash
-    robot.plan_and_execute_arm_motion(aw.sink_bottom_pose, p.getQuaternionFromEuler((1.57,0,0)))
-    time.sleep(4)
-    robot.release_hold()
-    robot.tuck_arm()
-    # robot.raise_arm_after_pick()
-    time.sleep(5)
-    robot.pick_up(aw.meat)
-    time.sleep(3)
-    # robot.raise_arm_after_pick()
+    # robot.plan_and_drive_to_pose(aw.sink_base_pose)
+    # time.sleep(3)
+    # robot.plan_and_execute_arm_motion(aw.sink_bottom_pose, p.getQuaternionFromEuler((1.57,0,0)))
+    # time.sleep(4)
+    # robot.release_hold()
+    # robot.tuck_arm()
+    # # robot.raise_arm_after_pick()
+    # time.sleep(5)
+    # robot.pick_up(aw.meat)
+    # time.sleep(3)
+    # # robot.raise_arm_after_pick()
 
-    #cook
-    robot.plan_and_drive_to_pose(aw.stove_base_pose)
-    time.sleep(3)
-    robot.place_at(aw.stove_surface_pose, aw.meat) 
-    robot.press_dial(aw.stove_dial)
+    # #cook
+    # robot.plan_and_drive_to_pose(aw.stove_base_pose)
+    # time.sleep(3)
+    # robot.place_at(aw.stove_surface_pose, aw.meat) 
+    # robot.press_dial(aw.stove_dial)
+    # aw.put_item_in_drawer('top_right')
+    # robot.plan_and_drive_to_pose((6,-2, 0))
+    # robot.plan_and_drive_to_pose(aw.cabinet_open_base_pose)
+    # time.sleep(3)
+
+    check_cabinet_and_get_item()
+    wash_food()
+    cook()
+    
+    get_cup()
+    fill_cup_with_water()
+    pour_in_saucepan()
+    place_mug_back()
+    cook_finish()
+
+    put_food_in_tray()
+    serve_food()
+    # photo_ob() 
+    while True:
+        keys = p.getKeyboardEvents()
+        if ord('a') in keys:
+            width, height, viewMatrix, projectionMatrix, _,_,_,_,_,_,_,_ = p.getDebugVisualizerCamera()
+            imgs = p.getCameraImage(width, height, viewMatrix, projectionMatrix)
+            rgb = imgs[2]
+            im = Image.fromarray(rgb).convert('RGB')
+            im.save('kitchen.png')
+
+            
 
     time.sleep(1000)
 
-
+def apt_grocery_test():
+    client = p.connect(p.GUI, options='--background_color_red=0.0 --background_color_green=0.0 --background_color_blue=0.0')
+    p.configureDebugVisualizer(p.COV_ENABLE_GUI,0)
+    p.resetDebugVisualizerCamera(3, 90, -30, [0.0, -0.0, -0.0])
+    script_path = os.path.dirname(os.path.realpath(__file__))
+    os.sys.path.append(os.path.realpath(script_path + '/../'))
+    from digit.src.buff_digit import Buff_digit  
+    
+    with pyplan.HideOutput(enable=True):
+        p.setGravity(0, 0, -9.81)
+        aw = Apt_Grocery_World()
+        robot = Buff_digit(client)
+        pyplan.set_pose(robot.id, aw.robot_init_pose)
+    p.setRealTimeSimulation(1) 
+    time.sleep(4)
+    current_pose = pyplan.get_base_values(robot.id)
+    current_pose = list(current_pose)
+    current_pose[0]-=0.4
+    current_pose[1]+=0.2       
+    # robot.plan_and_drive_to_pose(current_pose)
+    # time.sleep(1)
+    # robot.pick_up(aw.ob_idx['YcbPear'])
+    while True:
+        keys = p.getKeyboardEvents()
+        if ord('a') in keys:
+            width, height, viewMatrix, projectionMatrix, _,_,_,_,_,_,_,_ = p.getDebugVisualizerCamera()
+            imgs = p.getCameraImage(width, height, viewMatrix, projectionMatrix)
+            rgb = imgs[2]
+            im = Image.fromarray(rgb).convert('RGB')
+            im.save('pack2.png')
 
 def vhacd():
     p.connect(p.DIRECT)
-    name_in = '/home/bill/garage/kfp_v2/src/models/aws_robomaker_residential_KitchenCabinet_01/meshes/object.obj'
-    name_out = "/home/bill/garage/kfp_v2/src/models/aws_robomaker_residential_KitchenCabinet_01/meshes/object_vhacd.obj"
+    name_in = '/home/bill/pai/threed/bp_pai3d/kfp_v2/digit/models/saucepan/bowl.obj'
+    name_out = "/home/bill/pai/threed/bp_pai3d/kfp_v2/digit/models/saucepan/bowl_vhacd.obj"
     name_log = "log.txt"
     p.vhacd(name_in, name_out, name_log, alpha=0.04,resolution=50000 )
 
@@ -369,4 +568,5 @@ def vhacd():
 
 if __name__ == '__main__': 
     apartment_test() 
+    # apt_grocery_test()
     # vhacd()

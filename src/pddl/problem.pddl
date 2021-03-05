@@ -1,5 +1,6 @@
 (define (problem ROBOT-COOK) 
 (:domain COOK) 
- (:objects meat_can - ingredient)
-(:init  (clean meat_can) (handempty)) 
-(:goal (and  (cooked meat_can)))) 
+ (:objects pear meat_can - ingredient
+top-left top-right middle - drawer)
+(:init  (cooked pear) (observed pear) (handempty) ) 
+(:goal (and  (served pear)))) 
