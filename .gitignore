@@ -2,3 +2,5 @@ src/FastDownward
 src/*.pyc
 src/data*
 src/SS_Action_Model.py
+src/fd.pyc
+src/planning_utils.pyc
