@@ -5,7 +5,7 @@ do
 	do
 		for ((i=1; i<=3; i++))
 		do 
-			python run_bhcsp.py $i $j $k
+			python run_shycobra.py $i $j $k
 			sleep 15
 		done
 	done
