@@ -1,2 +1,0 @@
-Planning time: 15.126424074172974
-Num replans: 12

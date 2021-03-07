@@ -1,5 +1,5 @@
 #!/bin/bash
-for ((k=2; k<=3; k++))
+for ((k=1; k<=2; k++))
 do
 	for ((j=1; j<=4; j++))
 	do
