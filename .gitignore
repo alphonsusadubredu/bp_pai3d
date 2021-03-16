@@ -1,4 +1,4 @@
-src/FastDownward
+src/downward
 src/*.pyc
 src/fd.pyc
 src/planning_utils.pyc
