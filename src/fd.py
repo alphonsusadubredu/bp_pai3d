@@ -58,7 +58,7 @@ class Fast_Downward:
         self.default_planner = 'ff-lazy'
         self.max_fd_cost = 1e8
         self.plan_file = 'sas_plan'
-        self.fd_path = 'FastDownward/fast-downward.py' 
+        self.fd_path = 'downward/fast-downward.py' 
 
 
     def plan(self,domain_path, problem_path,debug=True):

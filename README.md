@@ -13,11 +13,13 @@ To install dependencies,
 	```
 	$ cd bp_pai3d
 	$ pip install -r requirements.txt
+	$ git clone https://github.com/aibasel/downward.git .
+	$ cd downward && ./build.py
 	```
 
 ## Usage
 To run a demo
 	
-	$ cd src
+	$ cd ../src
 	$ python run_shycobra.py 
 	
