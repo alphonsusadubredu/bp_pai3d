@@ -34,7 +34,7 @@ class Variable_node:
 			if self.weighted_particles[c] is not None:
 				all_particles+=self.weighted_particles[c]
 		if len(all_particles) == 0:
-			print('in ',self.name,self.type,self.action_name)
+			# print('in ',self.name,self.type,self.action_name)
 			all_particles = self.prior_particles
 		wts = [pw[1] for pw in all_particles]
 		pts = [pw[0] for pw in all_particles]
@@ -77,7 +77,7 @@ class Variable_node:
 		weights = [w[1] for w in belief]
 		maxind = np.argmax(weights)
 		maxpart = belief[maxind] 
-		print('max weight: ',self.action_name, self.type,weights[maxind])
+		# print('max weight: ',self.action_name, self.type,weights[maxind])
 		return maxpart[0]
 
 

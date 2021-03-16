@@ -60,11 +60,11 @@ class Action_Model:
 				# current_pose[0]+=0.2
 				# self.robot.plan_and_drive_to_pose(current_pose)
 				self.robot.raise_arm_after_pick()
-				# trajectory = action.maps['Trajectory'] 
-				pose = action.maps['Pose']
-				grasp = self.pu.compute_generic_grasp(pose)
-				# self.robot.move_arm_through_trajectory(trajectory) 
-				self.robot.plan_and_execute_arm_motion(grasp[0],grasp[1])
+				trajectory = action.maps['Trajectory'] 
+				# pose = action.maps['Pose']
+				# grasp = self.pu.compute_generic_grasp(pose)
+				self.robot.move_arm_through_trajectory(trajectory) 
+				# self.robot.plan_and_execute_arm_motion(grasp[0],grasp[1])
 				time.sleep(5) 
 				eepose = pyplan.get_link_pose(self.robot.id, self.robot.arms_ee['right_arm'])
 				obpose = pyplan.get_point(self.world.get_id(action.obj[0]))

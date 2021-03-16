@@ -16,7 +16,7 @@ drawers = ['top-left', 'top-right', 'middle']
  
 
 
-def bhcsp(robot, world, instructions):
+def collective_shycobra(robot, world, instructions):
 	planning_time = 0.0
 	num_replans = 0
 
@@ -79,7 +79,7 @@ def bhcsp(robot, world, instructions):
 
 
 
-def marginal_bhcsp(robot, world, instructions):
+def shycobra(robot, world, instructions):
 	planning_time = 0.0
 	num_replans = 0
 
@@ -98,7 +98,7 @@ def marginal_bhcsp(robot, world, instructions):
 		while not done:
 			START = time.time()
 			hcsp = ps.build_hcsp()	 
-			prior = pu.get_prior_belief(num_particles=10, targets=objects_of_interest,sigma=0.1) 
+			prior = pu.get_prior_belief(num_particles=10, targets=objects_of_interest,sigma=0.0001) 
 			pmpnbp = PMPNBP(hcsp)
 			pmpnbp.initialize_variables_with_prior(prior)
 			pmpnbp.pass_messages_across_factor_graph(num_iterations=5)
@@ -164,10 +164,23 @@ def run_experiments(argv, robot, world ):
 	f = open('data3/'+alg+'_'+task+'_'+str(int(argv[1]))+'.txt','w')
 	data = ['Planning time: '+str(pt)+'\n', 'Num replans: '+str(nr)]
 	f.writelines(data)
-	f.close()
-
-
+	f.close() 
 	pass
+
+
+def run_shycobra(robot, world):
+	tasks = ['get_pear','wash','cook', 'serve']
+	drawers=['top-right','top-left','middle']
+	algorithms=['joint','marginal']
+	instructions =  [('get', 'pear'), ('wash','pear'), ('cook','pear'), ('serve','pear')]
+	
+	drawer = drawers[1]
+	task = tasks[3]  
+	world.put_items_in_drawer(drawer)
+
+	_,_ = shycobra(robot, world, instructions)
+	print('************Task complete***************')
+
 
 if __name__ == '__main__':
 	client = p.connect(p.GUI,options='--background_color_red=0.0 --background_color_green=0.0 --background_color_blue=0.0')
@@ -181,7 +194,8 @@ if __name__ == '__main__':
 	time.sleep(5)
 
 	args = sys.argv
-	run_experiments(args, robot, world )
+	# run_experiments(args, robot, world )
+	run_shycobra(robot, world)
 	time.sleep(20) 
 
 

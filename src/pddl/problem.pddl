@@ -2,5 +2,5 @@
 (:domain COOK) 
  (:objects pear meat_can - ingredient
 top-left top-right middle - drawer)
-(:init  (cooked pear) (observed pear) (handempty) ) 
-(:goal (and  (served pear)))) 
+(:init  (clean pear) (holding pear) ) 
+(:goal (and  (cooked pear) (observed pear) (handempty)))) 
