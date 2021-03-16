@@ -1,4 +1,4 @@
-# bp_pai3d
+# SHY-COBRA
 A python implementation of the SHY-COBRA algorithm
 
 ## Installation
