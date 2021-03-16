@@ -10,8 +10,10 @@ To install dependencies,
 	`$ git clone https://github.com/alphonsusadubredu/bp_pai3d.git`
 
 2. Install dependencies
-
-	`$ pip install -r requirements.txt`
+	```
+	$cd bp_pai3d
+	$ pip install -r requirements.txt
+	```
 
 ## Usage
 To run a demo
