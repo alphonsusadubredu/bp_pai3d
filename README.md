@@ -15,9 +15,7 @@ To install dependencies,
 
 ## Usage
 To run a demo
-
-	```
-	$ cd src
 	
+	$ cd src
 	$ python run_shycobra.py 
-	```
+	
