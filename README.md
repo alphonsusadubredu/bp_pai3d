@@ -11,7 +11,7 @@ To install dependencies,
 
 2. Install dependencies
 	```
-	$cd bp_pai3d
+	$ cd bp_pai3d
 	$ pip install -r requirements.txt
 	```
 
