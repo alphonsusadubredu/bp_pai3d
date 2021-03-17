@@ -1,4 +1,4 @@
-(open-drawer middle)
-(inspect pear middle)
 (pick pear)
+(distribute pear)
+(serve pear)
 ; cost = 3 (unit cost)

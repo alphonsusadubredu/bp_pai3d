@@ -301,6 +301,7 @@ class Apartment_World:
         self.stand = p.loadURDF('mug/stand.urdf', self.stand_surface_pose, useFixedBase=True)
         self.mug = p.loadURDF('mug/mug.urdf', self.mug_surface_pose)
         # self.saucepan_constraint =  self.add_surface_constraint(self.cabinet_id, self.saucepan, (self.stove_surface_pose,(0,0,0,1)),max_force=None)
+        self.mug_constraint = self.add_surface_constraint(self.mug, self.stand) 
 
     def init_items(self):
         # x,y,z = (8.7,-1.8, 1.35) 
@@ -371,23 +372,27 @@ class Apartment_World:
         z = pose[2]
         return (x,y,z)
 
-    def add_surface_constraint(self, parent_id, child_id, global_pose,max_force=None):
+    
+
+    def add_surface_constraint(self, body, robot, robot_link=-1, max_force=None):
         from pybullet_planning.interfaces.env_manager.pose_transformation import get_pose, unit_point, unit_quat, multiply, invert
-        from pybullet_planning.interfaces.robots import get_com_pose, get_link_pose, get_pose
- 
-        body_pose = get_pose(child_id)  
-        end_effector_pose = get_pose(parent_id)
-        grasp_pose = multiply(invert(global_pose), body_pose)
+        from pybullet_planning.interfaces.robots import get_com_pose
+
+        body_link = -1
+        robot_link = -1
+        body_pose = get_pose(body) 
+        end_effector_pose = get_pose(robot)
+        grasp_pose = multiply(invert(end_effector_pose), body_pose)
         point, quat = grasp_pose 
-        constraint = p.createConstraint(parent_id, -1, child_id, -1,  
+        constraint = p.createConstraint(robot, robot_link, body, body_link,  # Both seem to work
                                         p.JOINT_FIXED, jointAxis=unit_point(),
-                                        parentFramePosition=global_pose[0],
+                                        parentFramePosition=point,
                                         childFramePosition=unit_point(),
                                         parentFrameOrientation=quat,
                                         childFrameOrientation=unit_quat() )
         if max_force is not None:
             p.changeConstraint(constraint, maxForce=max_force, physicsClientId=CLIENT)
-        return constraint 
+        return constraint
 
     def put_items_in_drawer(self, drawer_name): 
         self.items_location = drawer_name

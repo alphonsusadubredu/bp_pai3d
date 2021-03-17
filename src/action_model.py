@@ -1,6 +1,7 @@
 import numpy as np 
 import time
 import pybullet_planning as pyplan
+import pybullet as p
 
 
 class Action_Model:
@@ -323,6 +324,8 @@ class Action_Model:
 					return False   
 				pp = list(gpose[0]); pp[2] = pyplan.get_point(self.world.mug)[2]; pp[0]+=0.07
 				pyplan.set_point(self.world.mug, pp)
+				p.removeConstraint(self.world.mug_constraint)
+
 				self.robot.hold(self.world.mug)
 				time.sleep(1)
 				self.robot.raise_arm_after_pick()
