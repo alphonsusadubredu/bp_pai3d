@@ -192,6 +192,7 @@ if __name__ == '__main__':
 		robot = Buff_digit(client)
 	p.setRealTimeSimulation(1)  
 	time.sleep(5)
+	world.set_up()
 
 	args = sys.argv
 	# run_experiments(args, robot, world )

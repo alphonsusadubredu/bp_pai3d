@@ -301,7 +301,11 @@ class Apartment_World:
         self.stand = p.loadURDF('mug/stand.urdf', self.stand_surface_pose, useFixedBase=True)
         self.mug = p.loadURDF('mug/mug.urdf', self.mug_surface_pose)
         # self.saucepan_constraint =  self.add_surface_constraint(self.cabinet_id, self.saucepan, (self.stove_surface_pose,(0,0,0,1)),max_force=None)
-        self.mug_constraint = self.add_surface_constraint(self.mug, self.stand) 
+        # time.sleep(5)
+        
+        # print('on there') 
+    def set_up(self):
+        self.mug_constraint = self.add_surface_constraint(self.mug, self.stand)
 
     def init_items(self):
         # x,y,z = (8.7,-1.8, 1.35) 
@@ -333,7 +337,7 @@ class Apartment_World:
         return iden
 
     def init_constants(self):
-        self.joint_noise = 0.05
+        self.joint_noise = 0.0005
         self.cabinet_open_base_pose = (7.65, -1.6, 0)
         self.sink_base_pose = (8.3, -4.3, -1.57)
         self.mug_base_pose = (7.6, -4.3, -1.57)

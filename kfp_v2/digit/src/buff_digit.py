@@ -408,7 +408,10 @@ class Buff_digit:
     def score_graspc(self, conf, grasp, pose, pose2, conf2, opt):
         grasp_orr = np.array(p.getEulerFromQuaternion(grasp[1]))
         opt_orr = p.getEulerFromQuaternion(opt[1])
-        cost = np.linalg.norm((grasp_orr - np.array(opt_orr)))
+        cost = 0.0001
+        for i,j in zip(grasp_orr, opt_orr):
+            cost += np.abs(i-j)
+        # cost = np.linalg.norm((grasp_orr - np.array(opt_orr)))
         return cost
 
     def score_conf_graspc(self, conf, grasp, pose, armname='right_arm'): 

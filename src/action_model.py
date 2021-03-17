@@ -314,11 +314,11 @@ class Action_Model:
 				self.robot.plan_and_execute_arm_motion(gpose[0], gpose[1])
 				time.sleep(5)
 
-				eepose = pyplan.get_link_pose(self.robot.id, self.robot.arms_ee['right_arm'])
+				eepose = pyplan.get_link_pose(self.robot.id, self.robot.arms_ee['right_arm']) 
 				obpose = self.world.opt_pour_global[0]
 				dist = np.linalg.norm((np.array(eepose[0])[:2] - np.array(obpose)[:2]))
 				print('dist to grasp mug target: ',dist)
-				success = success and (dist < 0.1)
+				success = success and (dist < 0.05)
 				if not success:
 					time.sleep(1) 
 					return False   
